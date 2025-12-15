@@ -1,0 +1,33 @@
+# Python bytecode
+*.pyc
+__pycache__/
+
+# Virtual environment
+.venv/
+env/
+venv/
+
+# Editor/IDE specific files
+.idea/
+.vscode/
+
+# Environment variables
+.env
+*.env
+.env.example
+
+# Data files (if not meant to be versioned)
+*.csv
+*.json
+*.txt
+*.sqlite
+*.db
+client_secret_1083945421718-o39uj80ee4kred8382qv51lmc23fqvts.apps.googleusercontent.com.json
+
+# Log files
+*.log
+
+# LangGraph specific (if applicable)
+# For example, if you're saving graph states or intermediate outputs
+# state_checkpoints/
+# graph_outputs/
