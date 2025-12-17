@@ -1,7 +1,7 @@
 """
 Project model - the central entity for video generation workflows.
 """
-from attr.validators import max_len
+
 from datetime import datetime
 from typing import TYPE_CHECKING, List, Optional
 from uuid import UUID
@@ -56,7 +56,7 @@ class Project(ProjectBase, BaseUUIDModel, table=True):
 
     # Relationships
     user: Optional["User"] = Relationship(back_populates="projects")
-    scripts: List["Scripts"] = Relationship(back_populates="project")
+    scripts: List["Script"] = Relationship(back_populates="project")
     casts: List["Cast"] = Relationship(back_populates="project")
     assets: List["Asset"] = Relationship(back_populates="project")
     youtube_metadata: Optional["YouTubeMetadata"] = Relationship(
