@@ -22,7 +22,7 @@ def add_app_context(
 
 
 def configure_logging() -> None:
-     """
+    """
     Configure structlog for JSON logging.
     
     Call this once during application startup.
@@ -86,7 +86,7 @@ def get_logger(name: Optional[str] = None) -> structlog.BoundLogger:
 
 
 def bind_context(**kwargs: Any) -> None:
-     """
+    """
     Bind context variables to all subsequent log entries.
     
     Useful for request-scoped context like user_id, project_id.

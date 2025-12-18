@@ -48,7 +48,7 @@ async def get_auth_url():
 async def youtube_callback(
     code: str=Query(...),
     state: str=Query(None),
-    session: AsyncSesson=Depends(get_session)
+    session: AsyncSession=Depends(get_session)
 ):
     """
     Handle OAuth callback from Google.
@@ -232,7 +232,7 @@ async def upload_to_youtube(
 
     # Find video asset
     video_asset = next(
-        (a for a in project.assets if a.asset_type.value === "video"), 
+        (a for a in project.assets if a.asset_type.value == "video"), 
         None
     )
 

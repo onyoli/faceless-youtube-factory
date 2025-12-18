@@ -13,12 +13,10 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.database import init_db, close_db, check_db_connection
-from app.utils.loggings import configure_logging, get_logger, bind_context, clear_context
+from app.utils.logging import configure_logging, get_logger, bind_context, clear_context
 
 from app.api.v1.router import api_router
 
-
-app.include_router(api_router, prefix=settings.api_v1_prefix)
 
 # Configure logging on module load
 configure_logging()
@@ -67,6 +65,9 @@ app = FastAPI(
     redoc_url="/redoc" if settings.debug else None,
     lifespan=lifespan,
 )
+
+# Include API routes
+app.include_router(api_router, prefix=settings.api_v1_prefix)
 
 # === MIDDLEWARE ===
 
@@ -134,7 +135,7 @@ app.mount(
 
 @app.get("/health", tags=["Health"])
 async def health_check():
-     """
+    """
     Health check endpoint.
     
     Returns 200 OK if database is reachable, 503 otherwise.

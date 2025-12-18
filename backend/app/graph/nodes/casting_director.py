@@ -67,8 +67,8 @@ async def casting_director_node(state: GraphState) -> GraphState:
                 project.status = ProjectStatus.GENERATING_AUDIO
                 session.add(project)
 
-             # Create cast record
-             cast = Cast(
+            # Create cast record
+            cast = Cast(
                 id=uuid4(),
                 project_id=state["project_id"],
                 assignments=cast_assignments

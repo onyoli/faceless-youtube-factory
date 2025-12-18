@@ -9,7 +9,7 @@ from typing import List, Dict, Any
 
 import edge_tts
 from app.config import settings
-from app.utils.loggin import get_logger
+from app.utils.logging import get_logger
 
 logger = get_logger(__name__)
 

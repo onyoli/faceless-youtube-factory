@@ -98,7 +98,7 @@ async def get_session_context() -> AsyncGenerator[AsyncSession, None]:
             await session.close()
 
 async def check_db_connection() -> bool:
-     """
+    """
     Check if database is reachable.
     
     Returns True if connection succeeds, False otherwise.

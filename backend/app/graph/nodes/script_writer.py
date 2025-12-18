@@ -56,7 +56,7 @@ async def script_writer_node(state: GraphState) -> GraphState:
             from app.models import Script, Project
 
             # Update project status
-            project = await session.get(Projec, state["project_id"])
+            project = await session.get(Project, state["project_id"])
             if project:
                 project.status = ProjectStatus.CASTING
                 session.add(project)
@@ -100,21 +100,22 @@ async def script_writer_node(state: GraphState) -> GraphState:
 
     return state
 
-    def should_continue_after_script(state: GraphState) -> str:
-        """
-        Conditional edge: Decide next step after script generation.
-        
-        Returns:
-        - "casting_director" if script was generated successfully
-        - "end" if max retries exceeded
-        - "script_writer" to retry on failure
-        """
-        if state.get("script_json") and state["script_json"].get("scenes"):
-            return "casting_director" 
 
-        if state.get("retry_count", 0) >= MAX_RETRIES:
-            logger.warning("Max retries exceeded", project_id=state["project_id"])
-            return "end"
+def should_continue_after_script(state: GraphState) -> str:
+    """
+    Conditional edge: Decide next step after script generation.
+    
+    Returns:
+    - "casting_director" if script was generated successfully
+    - "end" if max retries exceeded
+    - "script_writer" to retry on failure
+    """
+    if state.get("script_json") and state["script_json"].get("scenes"):
+        return "casting_director" 
 
-        # Retry
-        return "script_writer"
+    if state.get("retry_count", 0) >= MAX_RETRIES:
+        logger.warning("Max retries exceeded", project_id=state["project_id"])
+        return "end"
+
+    # Retry
+    return "script_writer"

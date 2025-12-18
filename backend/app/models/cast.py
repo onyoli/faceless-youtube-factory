@@ -2,7 +2,7 @@
 Cast model - stores voice casting assignments as JSONB.
 """
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Dict, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional, List
 from uuid import UUID
 
 from sqlmodel import Field, Relationship, SQLModel, Column

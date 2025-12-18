@@ -1,7 +1,6 @@
 """
 YouTube API service for handling OAuth and uploads.
 """
-from scipy.linalg._fblas import strmm
 import google_auth_oauthlib
 from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, Optional, Tuple
