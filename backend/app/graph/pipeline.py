@@ -134,6 +134,7 @@ async def run_pipeline(
         "script_json": None,
         "cast_list": None,
         "audio_files": [],
+        "audio_scene_indices": [],
         "video_path": None,
         "youtube_metadata": youtube_metadata,
         "youtube_video_id": None,

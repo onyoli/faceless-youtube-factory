@@ -35,7 +35,7 @@ class GroqService:
             ("system", """
             You are an expert YouTube scriptwriter. Create an engaging, dynamic script based on the user's topic.
             Follow these rules:
-            1. Use 2-4 distinct speakers (e.g., specific names or generic 'Host', 'Expert', 'Narrator').
+            1. Use 2-4 distinct speakers (e.g., specific names or generic 'Host', 'Expert', 'Narrator'. But not "I", or "Me").
             2. Keep lines concise and conversational.
             3. Include estimated duration for each line in seconds.
             4. Structure the output as valid JSON only.

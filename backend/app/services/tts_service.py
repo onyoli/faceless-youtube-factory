@@ -4,6 +4,7 @@ Text-to-Speech service using edge-tts.
 import edge_tts
 import asyncio
 import os
+import re
 from pathlib import Path
 from typing import List, Dict, Any
 
@@ -12,6 +13,44 @@ from app.config import settings
 from app.utils.logging import get_logger
 
 logger = get_logger(__name__)
+
+
+def sanitize_text_for_tts(text: str) -> str:
+    """
+    Sanitize text to prevent edge-tts from generating corrupted audio.
+    
+    Removes or replaces characters that can cause issues:
+    - Emojis and special Unicode characters
+    - Control characters
+    - Excessive whitespace
+    - Characters that conflict with SSML
+    """
+    if not text:
+        return ""
+    
+    # Remove emojis and special unicode characters (keep basic Latin, punctuation, numbers)
+    # This regex keeps letters, numbers, basic punctuation, and common accented characters
+    text = re.sub(r'[^\w\s.,!?;:\'"()\-–—…\u00C0-\u024F]', '', text, flags=re.UNICODE)
+    
+    # Remove control characters
+    text = re.sub(r'[\x00-\x1f\x7f-\x9f]', '', text)
+    
+    # Replace multiple spaces/newlines with single space
+    text = re.sub(r'\s+', ' ', text)
+    
+    # Escape characters that might conflict with SSML
+    text = text.replace('&', 'and')
+    text = text.replace('<', '')
+    text = text.replace('>', '')
+    
+    # Strip leading/trailing whitespace
+    text = text.strip()
+    
+    # Ensure we have some text
+    if not text:
+        text = "..."
+    
+    return text
 
 
 class TTSService:
@@ -54,6 +93,9 @@ class TTSService:
             Relative path to the generated file.
         """
         import uuid
+
+        # Ensure preview directory exists
+        self.preview_dir.mkdir(parents=True, exist_ok=True)
 
         filename = f"{uuid.uuid4()}.mp3"
         output_path = self.preview_dir / filename
@@ -106,14 +148,37 @@ class TTSService:
     ) -> str:
         """Internal method to generate audio file."""
         try:
+            # Sanitize text to prevent corrupted audio
+            clean_text = sanitize_text_for_tts(text)
+            
+            logger.debug(
+                "Generating TTS audio",
+                voice_id=voice_id,
+                text_preview=clean_text[:50],
+                rate=rate,
+                pitch=pitch
+            )
+            
             communicate = edge_tts.Communicate(
-                text,
+                clean_text,
                 voice_id,
                 rate=rate,
                 pitch=pitch
             )
 
             await communicate.save(str(output_path))
+            
+            # Verify the file was created and has content
+            if not output_path.exists():
+                raise RuntimeError(f"Audio file was not created: {output_path}")
+            
+            file_size = output_path.stat().st_size
+            if file_size < 100:  # MP3 files should be at least a few hundred bytes
+                logger.warning(
+                    "Generated audio file is suspiciously small",
+                    path=str(output_path),
+                    size=file_size
+                )
 
             # Return path relative to static dir for URL generation
             # e.g., "audio/<project_id>/<scene_id>.mp3"

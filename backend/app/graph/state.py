@@ -23,6 +23,7 @@ class GraphState(TypedDict):
     script_json: Optional[Dict[str, Any]]
     cast_list: Optional[Dict[str, Any]]
     audio_files: List[str]
+    audio_scene_indices: List[int]  # Indices of scenes with successfully generated audio
     video_path: Optional[str]
 
     # YouTube-specific

@@ -31,24 +31,39 @@ async def video_composer_node(state: GraphState) -> GraphState:
     state["current_step"] = "generating_video"
 
     try:
-        # Prepare metadata for each audio clip
+        # Get scenes and audio files
         scenes = state["script_json"].get("scenes", [])
         audio_files = state["audio_files"]
+        
+        # Get indices of scenes that have audio (if available)
+        audio_scene_indices = state.get("audio_scene_indices", list(range(len(audio_files))))
+        
+        logger.info(
+            "Composing video",
+            project_id=state["project_id"],
+            total_scenes=len(scenes),
+            audio_files=len(audio_files),
+            valid_indices=len(audio_scene_indices)
+        )
 
-        # Match audio files with scene metadata
-        # Audio files are named by index (0.mp3, 1.mp3, etc.)
+        # Build metadata using the correct scene indices
         meta_data = []
-        for i, audio_path in enumerate(audio_files):
-            if i < len(scenes):
+        for idx, audio_path in zip(audio_scene_indices, audio_files):
+            if idx < len(scenes):
+                scene = scenes[idx]
                 meta_data.append({
-                    "speaker": scenes[i]["speaker"],
-                    "line": scenes[i]["line"][:100]  # Truncate for display
+                    "speaker": scene.get("speaker", "Unknown"),
+                    "line": scene.get("line", "")[:100]  # Truncate for display
                 })
             else:
+                logger.warning(f"Scene index {idx} out of range, using fallback")
                 meta_data.append({
                     "speaker": "Unknown",
                     "line": ""
                 })
+
+        if not audio_files:
+            raise ValueError("No audio files to compose video from")
 
         # Compose video
         video_path = await video_service.create_video(
@@ -92,7 +107,8 @@ async def video_composer_node(state: GraphState) -> GraphState:
         logger.info(
             "Video composition completed",
             project_id=state["project_id"],
-            path=video_path
+            path=video_path,
+            clips_included=len(audio_files)
         )
 
     except Exception as e:
