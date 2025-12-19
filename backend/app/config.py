@@ -47,7 +47,7 @@ class Settings(BaseSettings):
     # Groq API
     groq_api_key: str = ""
     groq_model: str = "llama-3.3-70b-versatile"
-    groq_max_tokens: int = 4096
+    groq_max_tokens: int = 30768
     groq_temperature: float = 0.7
 
     # Google OAuth for YouTube API

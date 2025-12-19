@@ -35,18 +35,20 @@ class GroqService:
             ("system", """
             You are an expert YouTube scriptwriter. Create an engaging, dynamic script based on the user's topic.
             Follow these rules:
-            1. Use 2 distinct speakers (e.g., specific names or generic 'Host', 'Expert').
+            1. Use 2-4 distinct speakers (e.g., specific names or generic 'Host', 'Expert', 'Narrator').
             2. Keep lines concise and conversational.
             3. Include estimated duration for each line in seconds.
             4. Structure the output as valid JSON only.
-            5. Total duration should be roughly 2-3 minutes.
+            5. If the user specifies a target duration, aim for that length. 
+               Otherwise, create a 5-10 minute video (more content is better).
+            6. IMPORTANT: Generate COMPLETE scenes. Every scene MUST have all three fields: "speaker", "line", and "duration".
             
             Output format:
             {{
                 "scenes": [
                     {{
                         "speaker": "Host",
-                        "line": "Welcome back to the channel!".
+                        "line": "Welcome back to the channel!",
                         "duration": 3.0
                     }}
                 ]

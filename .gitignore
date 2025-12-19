@@ -14,7 +14,7 @@ venv/
 # Environment variables
 .env
 *.env
-.env.example
+!.env.example
 
 # Data files (if not meant to be versioned)
 *.csv
