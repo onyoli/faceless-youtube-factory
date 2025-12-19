@@ -118,6 +118,21 @@ class GroqService:
                 "category_id": "22"
             }
 
+    async def generate_raw(self, prompt: str) -> str:
+        """
+        Generate raw text response from a prompt.
+        
+        Used for flexible tasks like voice casting where we need
+        more control over parsing.
+        """
+        try:
+            logger.info("Generating raw LLM response")
+            response = await self.llm.ainvoke(prompt)
+            return response.content
+        except Exception as e:
+            logger.error("Raw generation failed", error=str(e))
+            raise
+
 
 # Singleton instance
 groq_service = GroqService()
