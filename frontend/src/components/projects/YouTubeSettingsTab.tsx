@@ -150,7 +150,7 @@ export function YouTubeSettingsTab({ project }: YouTubeSettingsTabProps) {
                             <Youtube className="h-5 w-5 text-red-500" />
                             <span className="font-medium">{ytConnection?.channel_title}</span>
                         </div>
-                        <Badge variant="default">Connected</Badge>
+                        <Badge variant="success">Connected</Badge>
                     </div>
                 </CardContent>
             </Card>
