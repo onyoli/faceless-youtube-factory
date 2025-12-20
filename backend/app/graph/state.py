@@ -2,6 +2,7 @@
 LangGraph state definition.
 Defines the data that flows through the pipeline.
 """
+
 from typing import TypedDict, List, Dict, Any, Optional
 
 
@@ -11,6 +12,7 @@ class GraphState(TypedDict):
     Each node can read and modify this state.
     All fields are optional to allow partial initialization.
     """
+
     # Core identifiers
     project_id: str
     user_id: str
@@ -23,7 +25,10 @@ class GraphState(TypedDict):
     script_json: Optional[Dict[str, Any]]
     cast_list: Optional[Dict[str, Any]]
     audio_files: List[str]
-    audio_scene_indices: List[int]  # Indices of scenes with successfully generated audio
+    audio_scene_indices: List[int]
+    image_files: List[str]
+    image_scene_indices: List[int]
+    image_prompts: List[str]
     video_path: Optional[str]
 
     # YouTube-specific
