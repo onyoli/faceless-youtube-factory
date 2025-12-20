@@ -2,6 +2,7 @@ export type ProjectStatus =
     | "draft"
     | "generating_script"
     | "casting"
+    | "generating_images"
     | "generating_audio"
     | "generating_video"
     | "completed"

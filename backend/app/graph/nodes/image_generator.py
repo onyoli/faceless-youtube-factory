@@ -30,9 +30,20 @@ async def image_generator_node(state: GraphState) -> GraphState:
     """
     logger.info("ImageGenerator node started", project_id=state["project_id"])
 
-    state["current_step"] = "generting images"
+    state["current_step"] = "generating_images"
 
     try:
+        # Update project status
+        async with get_session_context() as session:
+            from app.models import Project
+            from uuid import UUID as UUIDType
+
+            project = await session.get(Project, UUIDType(state["project_id"]))
+            if project:
+                project.status = ProjectStatus.GENERATING_IMAGES
+                session.add(project)
+            await session.commit()
+
         script_json = state["script_json"]
         scenes = script_json.get("scenes", [])
 

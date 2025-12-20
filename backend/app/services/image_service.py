@@ -1,5 +1,5 @@
 """
-Image generation service using Flux Schnell.
+Image generation service using Stable Diffusion XL.
 """
 
 import asyncio
@@ -7,9 +7,6 @@ import gc
 import torch
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Optional
-from huggingface_hub import login
-from PIL import UnidentifiedImageError
 
 from app.config import settings
 from app.utils.logging import get_logger
@@ -21,7 +18,7 @@ image_executor = ThreadPoolExecutor(max_workers=1)
 
 
 class ImageService:
-    """Service for generating images using Flux Schnell."""
+    """Service for generating images using Stable Diffusion XL."""
 
     def __init__(self):
         self.output_dir = Path(settings.static_dir) / "images"
@@ -30,14 +27,14 @@ class ImageService:
         self._model_loaded = False
 
     def _load_model(self):
-        """Lazy load the Flux model to save VRAM when not in use."""
+        """Lazy load the SDXL model to save VRAM when not in use."""
         if self._model_loaded:
             return
 
         try:
             from diffusers import StableDiffusionXLPipeline
 
-            logger.info("Loading Flux Schnell model...")
+            logger.info("Loading Stable Diffusion XL model...")
 
             self.pipe = StableDiffusionXLPipeline.from_pretrained(
                 "stabilityai/stable-diffusion-xl-base-1.0",

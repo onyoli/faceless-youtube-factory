@@ -2,11 +2,10 @@
 Video composition service using moviepy.
 """
 
-from PIL.ImagePalette import random
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import List, Tuple
+from typing import List
 
 from moviepy.editor import (
     AudioFileClip,

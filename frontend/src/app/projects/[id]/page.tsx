@@ -1,11 +1,12 @@
 "use client";
 import { useState, useCallback } from "react";
-import { useParams } from "next/navigation";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getProject } from "@/lib/api";
+import { useParams, useRouter } from "next/navigation";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import { getProject, cancelProject, deleteProject } from "@/lib/api";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScriptTab } from "@/components/projects/ScriptTab";
@@ -21,6 +22,8 @@ import {
     Loader2,
     AlertCircle,
     CheckCircle2,
+    XCircle,
+    Trash2,
 } from "lucide-react";
 
 const statusConfig: Record<
@@ -30,6 +33,7 @@ const statusConfig: Record<
     draft: { label: "Draft", variant: "secondary" },
     generating_script: { label: "Writing Script...", variant: "default" },
     casting: { label: "Casting Voices...", variant: "default" },
+    generating_images: { label: "Generating Images...", variant: "default" },
     generating_audio: { label: "Generating Audio...", variant: "default" },
     generating_video: { label: "Composing Video...", variant: "default" },
     completed: { label: "Completed", variant: "success" },
@@ -40,16 +44,46 @@ const statusConfig: Record<
 
 export default function ProjectDetailPage() {
     const params = useParams();
+    const router = useRouter();
     const projectId = params.id as string;
     const queryClient = useQueryClient();
     const [progress, setProgress] = useState(0);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+    // Cancel mutation
+    const cancelMutation = useMutation({
+        mutationFn: () => cancelProject(projectId),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["project", projectId] });
+        },
+    });
+
+    // Delete mutation
+    const deleteMutation = useMutation({
+        mutationFn: () => deleteProject(projectId),
+        onSuccess: () => {
+            router.push("/");
+        },
+    });
+
+    const handleCancel = () => {
+        if (confirm("Are you sure you want to cancel this project?")) {
+            cancelMutation.mutate();
+        }
+    };
+
+    const handleDelete = () => {
+        if (confirm("Are you sure you want to delete this project? This cannot be undone.")) {
+            deleteMutation.mutate();
+        }
+    };
     const { data: project, isLoading, error } = useQuery({
         queryKey: ["project", projectId],
         queryFn: () => getProject(projectId),
         refetchInterval: (query) => {
             const status = query.state.data?.status;
             // Poll more frequently during generation
-            if (status && ["generating_script", "casting", "generating_audio", "generating_video", "uploading_youtube"].includes(status)) {
+            if (status && ["generating_script", "casting", "generating_images", "generating_audio", "generating_video", "uploading_youtube"].includes(status)) {
                 return 3000;
             }
             return false;
@@ -102,6 +136,7 @@ export default function ProjectDetailPage() {
     const isProcessing = [
         "generating_script",
         "casting",
+        "generating_images",
         "generating_audio",
         "generating_video",
         "uploading_youtube",
@@ -118,6 +153,44 @@ export default function ProjectDetailPage() {
                     </p>
                 </div>
                 <div className="flex items-center gap-3">
+                    {/* Cancel Button - Show during processing */}
+                    {isProcessing && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleCancel}
+                            disabled={cancelMutation.isPending}
+                            className="text-orange-500 border-orange-500 hover:bg-orange-500/10"
+                        >
+                            {cancelMutation.isPending ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                                <>
+                                    <XCircle className="h-4 w-4 mr-1" />
+                                    Cancel
+                                </>
+                            )}
+                        </Button>
+                    )}
+                    {/* Delete Button - Show when not processing */}
+                    {!isProcessing && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleDelete}
+                            disabled={deleteMutation.isPending}
+                            className="text-red-500 border-red-500 hover:bg-red-500/10"
+                        >
+                            {deleteMutation.isPending ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                                <>
+                                    <Trash2 className="h-4 w-4 mr-1" />
+                                    Delete
+                                </>
+                            )}
+                        </Button>
+                    )}
                     {/* Connection indicator */}
                     <div
                         className={`h-2 w-2 rounded-full ${isConnected ? "bg-green-500" : "bg-red-500"}`}

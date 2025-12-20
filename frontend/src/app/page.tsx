@@ -7,12 +7,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ProjectStatus } from "@/types";
-import { Play, Youtube, AlertCircle, Clock, CheckCircle2, Loader2 } from "lucide-react";
+import { Play, Youtube, AlertCircle, Clock, CheckCircle2, Loader2, Image } from "lucide-react";
 
 const statusConfig: Record<ProjectStatus, { label: string; variant: "default" | "secondary" | "destructive" | "success" | "warning"; icon: React.ElementType }> = {
   draft: { label: "Draft", variant: "secondary", icon: Clock },
   generating_script: { label: "Writing Script", variant: "default", icon: Loader2 },
   casting: { label: "Casting", variant: "default", icon: Loader2 },
+  generating_images: { label: "Generating Images", variant: "default", icon: Loader2 },
   generating_audio: { label: "Generating Audio", variant: "default", icon: Loader2 },
   generating_video: { label: "Composing Video", variant: "default", icon: Loader2 },
   completed: { label: "Completed", variant: "success", icon: CheckCircle2 },
@@ -73,7 +74,7 @@ export default function DashboardPage() {
           {data?.items.map((project) => {
             const config = statusConfig[project.status];
             const StatusIcon = config.icon;
-            const isProcessing = ["generating_script", "casting", "generating_audio", "generating_video", "uploading_youtube"].includes(project.status);
+            const isProcessing = ["generating_script", "casting", "generating_images", "generating_audio", "generating_video", "uploading_youtube"].includes(project.status);
             return (
               <Link key={project.id} href={`/projects/${project.id}`}>
                 <Card className="hover:border-primary/50 transition-colors cursor-pointer">

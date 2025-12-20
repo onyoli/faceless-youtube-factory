@@ -5,6 +5,7 @@ CREATE TYPE project_status AS ENUM (
     'draft',
     'generating_script',
     'casting',
+    'generating_images',
     'generating_audio',
     'generating_video',
     'completed',

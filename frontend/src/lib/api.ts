@@ -68,6 +68,18 @@ export async function regenerateVideo(projectId: string): Promise<{ message: str
     return fetchAPI(`/api/v1/projects/${projectId}/regenerate-video`, {
         method: "POST",
     });
+}
+
+export async function cancelProject(projectId: string): Promise<{ message: string }> {
+    return fetchAPI(`/api/v1/projects/${projectId}/cancel`, {
+        method: "POST",
+    });
+}
+
+export async function deleteProject(projectId: string): Promise<{ message: string }> {
+    return fetchAPI(`/api/v1/projects/${projectId}`, {
+        method: "DELETE",
+    });
 } 
 
 // Casting
