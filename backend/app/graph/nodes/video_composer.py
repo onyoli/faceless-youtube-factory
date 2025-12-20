@@ -1,6 +1,7 @@
 """
 VideoComposer Node - Composes final video from audio clips.
 """
+
 from typing import Dict, Any
 from uuid import uuid4
 
@@ -12,38 +13,41 @@ from app.utils.logging import get_logger
 
 logger = get_logger(__name__)
 
+
 async def video_composer_node(state: GraphState) -> GraphState:
     """
     Compose the final video from audio clips and text overlays.
-    
+
     Uses moviepy to:
     1. Create colored backgrounds
     2. Add text overlays with speaker names and lines
     3. Sync audio with video
     4. Concatenate all clips
-    
+
     Updates:
     - video_path: Path to the final video file
     - progress: Updated to 0.9 on success
     """
     logger.info("VideoComposer node started", project_id=state["project_id"])
-    
+
     state["current_step"] = "generating_video"
 
     try:
         # Get scenes and audio files
         scenes = state["script_json"].get("scenes", [])
         audio_files = state["audio_files"]
-        
+
         # Get indices of scenes that have audio (if available)
-        audio_scene_indices = state.get("audio_scene_indices", list(range(len(audio_files))))
-        
+        audio_scene_indices = state.get(
+            "audio_scene_indices", list(range(len(audio_files)))
+        )
+
         logger.info(
             "Composing video",
             project_id=state["project_id"],
             total_scenes=len(scenes),
             audio_files=len(audio_files),
-            valid_indices=len(audio_scene_indices)
+            valid_indices=len(audio_scene_indices),
         )
 
         # Build metadata using the correct scene indices
@@ -51,25 +55,28 @@ async def video_composer_node(state: GraphState) -> GraphState:
         for idx, audio_path in zip(audio_scene_indices, audio_files):
             if idx < len(scenes):
                 scene = scenes[idx]
-                meta_data.append({
-                    "speaker": scene.get("speaker", "Unknown"),
-                    "line": scene.get("line", "")[:100]  # Truncate for display
-                })
+                meta_data.append(
+                    {
+                        "speaker": scene.get("speaker", "Unknown"),
+                        "line": scene.get("line", "")[:100],  # Truncate for display
+                    }
+                )
             else:
                 logger.warning(f"Scene index {idx} out of range, using fallback")
-                meta_data.append({
-                    "speaker": "Unknown",
-                    "line": ""
-                })
+                meta_data.append({"speaker": "Unknown", "line": ""})
 
         if not audio_files:
             raise ValueError("No audio files to compose video from")
+
+        # Get image files from state
+        image_files = state.get("image_files", [])
 
         # Compose video
         video_path = await video_service.create_video(
             project_id=state["project_id"],
             audio_files=audio_files,
-            meta_data=meta_data
+            meta_data=meta_data,
+            image_files=image_files,
         )
 
         # Save asset record
@@ -88,12 +95,13 @@ async def video_composer_node(state: GraphState) -> GraphState:
                 project_id=state["project_id"],
                 asset_type=AssetType.VIDEO,
                 file_path=video_path,
-                file_size_bytes=file_size
+                file_size_bytes=file_size,
             )
             session.add(asset)
 
             # Update project status
             from uuid import UUID as UUIDType
+
             project = await session.get(Project, UUIDType(state["project_id"]))
             if project:
                 project.status = ProjectStatus.COMPLETED
@@ -108,7 +116,7 @@ async def video_composer_node(state: GraphState) -> GraphState:
             "Video composition completed",
             project_id=state["project_id"],
             path=video_path,
-            clips_included=len(audio_files)
+            clips_included=len(audio_files),
         )
 
     except Exception as e:
@@ -120,19 +128,21 @@ async def video_composer_node(state: GraphState) -> GraphState:
         async with get_session_context() as session:
             from app.models import Project
             from uuid import UUID as UUIDType
+
             project = await session.get(Project, UUIDType(state["project_id"]))
             if project:
                 project.status = ProjectStatus.FAILED
                 project.error_message = error_msg
                 session.add(project)
                 await session.commit()
-    
+
     return state
+
 
 def should_upload_to_youtube(state: GraphState) -> str:
     """
     Conditional edge: Decide whether to upload to YouTube.
-    
+
     Returns:
     - "youtube_uploader" if video exists, auto_upload is True, and metadata is available
     - "end" otherwise
