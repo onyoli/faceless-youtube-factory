@@ -47,6 +47,14 @@ services:
           target: /app/app
         - action: rebuild
           path: ./backend/requirements.txt
+    # GPU Support
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
   frontend:
     build:
       context: ./frontend
