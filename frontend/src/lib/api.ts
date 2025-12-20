@@ -1,6 +1,6 @@
 import { Project, ProjectDetail, Voice, YouTubeConnection, YouTubeMetadata} from "@/types";
 
-export const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "http://localhost:8000";
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 // Helper to build full URLs for static files served by the backend
 export function getStaticUrl(path: string): string {

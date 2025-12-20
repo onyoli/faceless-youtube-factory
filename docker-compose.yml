@@ -31,6 +31,7 @@ services:
       - TOKEN_ENCRYPTION_KEY=${TOKEN_ENCRYPTION_KEY}
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
       - DEBUG=${DEBUG:-true}
+      - HF_TOKEN=${HF_TOKEN}
     volumes:
       - ./backend:/app
       - ./backend/static:/app/static

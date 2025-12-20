@@ -1,12 +1,14 @@
 """
 Image generation service using Flux Schnell.
 """
+
 import asyncio
 import gc
 import torch
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Optional
+from huggingface_hub import login
 from PIL import UnidentifiedImageError
 
 from app.config import settings
@@ -33,58 +35,58 @@ class ImageService:
             return
 
         try:
-            from diffusers import FluxPipeline
+            from diffusers import StableDiffusionXLPipeline
 
             logger.info("Loading Flux Schnell model...")
 
-            self.pipe = FluxPipeline.from_pretrained(
-                settings.flux_model,
-                torch_dtype=torch.bfloat16
+            self.pipe = StableDiffusionXLPipeline.from_pretrained(
+                "stabilityai/stable-diffusion-xl-base-1.0",
+                torch_dtype=torch.float16,
+                use_safetensors=True,
+                variant="fp16",
             )
 
-            # Enable memory optimizations
-            self.pipe.enable_model_cpu_offload()
-
-            # Optional: Enable attention slicing for lower VRAM
-            # self.pipe.enable_attention_slicing()
+            self.pipe = self.pipe.to("cuda")
+            self.pipe.enable_attention_slicing()
 
             self._model_loaded = True
-            logger.info("Flux Schnell model loaded successfully")
+            logger.info("SDXL model loaded successfully")
 
         except Exception as e:
-            logger.error("Failed to load Flux Schnell model", error=str(e))
+            logger.error("Failed to load SDXL model", error=str(e))
             raise
 
     def _unload_model(self):
         """Unload model to free VRAM."""
         if self.pipe is not None:
             del self.pipe
+            self.pipe = None
             self._model_loaded = False
             gc.collect()
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
-            logger.info("Flux model unloaded")
+            logger.info("SDXL model unloaded")
 
     def _generate_sync(
         self,
         prompt: str,
         output_path: Path,
-        width: int=1280,
-        height: int=720,
-        num_steps: int=4
+        width: int = 1280,
+        height: int = 720,
+        num_steps: int = 20,
     ) -> str:
         """Synchronous image generation (runs in thread pool)."""
         self._load_model()
 
         try:
             logger.info(f"Generating image: {prompt[:50]}...")
-            
+
             image = self.pipe(
                 prompt=prompt,
                 width=width,
                 height=height,
                 num_inference_steps=num_steps,
-                guidance_scale=0.0
+                guidance_scale=7.5,
             ).images[0]
 
             # Save image
@@ -101,10 +103,7 @@ class ImageService:
             raise
 
     async def generate_scene_image(
-        self,
-        project_id: str,
-        scene_id: str,
-        prompt: str
+        self, project_id: str, scene_id: str, prompt: str
     ) -> str:
         """
         Generate an image for a scene.
@@ -120,7 +119,7 @@ class ImageService:
         # Create project directory
         project_dir = self.output_dir / str(project_id)
         project_dir.mkdir(parents=True, exist_ok=True)
-        
+
         output_path = project_dir / f"{scene_id}.png"
 
         loop = asyncio.get_running_loop()
@@ -132,34 +131,29 @@ class ImageService:
             output_path,
             settings.image_width,
             settings.image_height,
-            settings.image_num_steps
+            settings.image_num_steps,
         )
 
         return result
 
-    async def generate_batch(
-        self,
-        project_id: str,
-        prompts: list[str]
-    ) -> list[str]:
+    async def generate_batch(self, project_id: str, prompts: list[str]) -> list[str]:
         """Generate multiple images for a project."""
         paths = []
         for i, prompt in enumerate(prompts):
             try:
                 path = await self.generate_scene_image(
-                    project_id=project_id,
-                    scene_id=str(i),
-                    prompt=prompt
+                    project_id=project_id, scene_id=str(i), prompt=prompt
                 )
                 paths.append(path)
             except Exception as e:
                 logger.error(f"Failed to generate image for scene {i}: {e}")
                 paths.append(None)
-        
+
         # Unload model after batch to free VRAM
         self._unload_model()
-        
+
         return paths
+
 
 # Singleton instance
 image_service = ImageService()

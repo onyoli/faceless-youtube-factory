@@ -77,10 +77,10 @@ class Settings(BaseSettings):
     max_script_prompt_length: int = 5000
 
     # Image Generation (Flux Schnell)
-    flux_model: str = "black-forest-labs/FLUX.1-schnell"
+    flux_model: str = "stabilityai/stable-diffusion-xl-base-1.0"
     image_width: int = 1280
     image_height: int = 720
-    image_num_steps: int = 4  # Schnell uses few steps
+    image_num_steps: int = 20
     enable_image_generation: bool = True
 
     @property
