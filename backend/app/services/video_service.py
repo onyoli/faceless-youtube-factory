@@ -32,7 +32,11 @@ class VideoService:
         self.static_base = Path(settings.static_dir)
 
     async def create_video(
-        self, project_id: str, audio_files: List[str], meta_data: List[dict]
+        self,
+        project_id: str,
+        audio_files: List[str],
+        meta_data: List[dict],
+        image_files: List[str] = None,
     ) -> str:
         """
         Componse final video from audio clips and text overlays.
@@ -40,8 +44,14 @@ class VideoService:
         """
         loop = asyncio.get_running_loop()
 
-        # Determine full paths
         full_audio_paths = [self.static_base / path for path in audio_files]
+
+        # Get image paths if provided
+        full_image_paths = None
+        if image_files:
+            full_image_paths = [self.static_base / path for path in image_files]
+
+        # Determine full paths
         project_video_dir = self.output_dir / str(project_id)
         project_video_dir.mkdir(parents=True, exist_ok=True)
         output_path = project_video_dir / "final.mp4"
@@ -60,6 +70,7 @@ class VideoService:
                 full_audio_paths,
                 meta_data,
                 output_path,
+                full_image_paths,
             )
 
             # Return relative path
