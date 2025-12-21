@@ -18,12 +18,13 @@ logger = get_logger(__name__)
 
 async def image_generator_node(state: GraphState) -> GraphState:
     """
-    Generate images for scenes in the script based on scenes_per_image ratio.
+    Generate images for scenes based on image_mode.
 
-    Uses LLM to create image prompts from scene context,
-    then generates images using SDXL.
-
-    If scenes_per_image=2, generates 1 image for every 2 scenes.
+    Modes:
+    - per_scene: Generate N images based on scenes_per_image ratio
+    - single: Generate 1 image for entire video from story summary
+    - upload: Use user-uploaded background image
+    - none: Skip image generation (use solid backgrounds)
 
     Updates:
     - image_files: List of paths to generated images
@@ -34,6 +35,7 @@ async def image_generator_node(state: GraphState) -> GraphState:
     logger.info("ImageGenerator node started", project_id=state["project_id"])
 
     state["current_step"] = "generating_images"
+    image_mode = state.get("image_mode", "per_scene")
 
     try:
         # Update project status
@@ -49,60 +51,114 @@ async def image_generator_node(state: GraphState) -> GraphState:
 
         script_json = state["script_json"]
         scenes = script_json.get("scenes", [])
-        scenes_per_image = state.get("scenes_per_image", 2)
-
-        # Calculate how many images we need
-        num_images = max(1, (len(scenes) + scenes_per_image - 1) // scenes_per_image)
+        num_scenes = len(scenes)
 
         logger.info(
             "Image generation config",
             project_id=state["project_id"],
-            total_scenes=len(scenes),
-            scenes_per_image=scenes_per_image,
-            images_to_generate=num_images,
+            image_mode=image_mode,
+            total_scenes=num_scenes,
         )
 
-        # Group scenes for prompt generation
-        scene_groups = []
-        for i in range(0, len(scenes), scenes_per_image):
-            group = scenes[i : i + scenes_per_image]
-            scene_groups.append(group)
+        if image_mode == "none":
+            # Skip image generation - use solid backgrounds
+            state["image_files"] = []
+            state["image_scene_indices"] = []
+            state["image_prompts"] = []
+            logger.info(
+                "Skipping image generation (mode=none)", project_id=state["project_id"]
+            )
 
-        # Generate image prompts using LLM (one per group)
-        image_prompts = await _generate_image_prompts_for_groups(scene_groups)
-
-        logger.info(
-            "Generated image prompts",
-            project_id=state["project_id"],
-            count=len(image_prompts),
-        )
-
-        # Generate images
-        image_files = await image_service.generate_batch(
-            project_id=state["project_id"], prompts=image_prompts
-        )
-
-        # Build scene-to-image mapping
-        # For scenes_per_image=2: scenes 0,1 use image 0; scenes 2,3 use image 1, etc.
-        valid_images = []
-        image_for_scene = []  # Index of which image to use for each scene
-
-        for i, path in enumerate(image_files):
-            if path is not None:
-                valid_images.append(path)
-
-        # Map each scene to its corresponding image index
-        for scene_idx in range(len(scenes)):
-            image_idx = scene_idx // scenes_per_image
-            # Use the valid image index, or -1 if no image
-            if image_idx < len(valid_images):
-                image_for_scene.append(image_idx)
+        elif image_mode == "upload":
+            # Use user-uploaded background image
+            background_url = state.get("background_image_url")
+            if background_url:
+                state["image_files"] = [background_url]
+                # All scenes use the same image (index 0)
+                state["image_scene_indices"] = [0] * num_scenes
+                state["image_prompts"] = ["User-uploaded background"]
+                logger.info(
+                    "Using uploaded background",
+                    project_id=state["project_id"],
+                    url=background_url,
+                )
             else:
-                image_for_scene.append(-1)
+                state["image_files"] = []
+                state["image_scene_indices"] = []
+                state["image_prompts"] = []
+                logger.warning(
+                    "Upload mode but no background_image_url provided",
+                    project_id=state["project_id"],
+                )
 
-        state["image_files"] = valid_images
-        state["image_scene_indices"] = image_for_scene
-        state["image_prompts"] = image_prompts
+        elif image_mode == "single":
+            # Generate single image for entire story
+            story_summary = await _generate_story_summary(script_json)
+            image_prompts = [story_summary]
+
+            image_files = await image_service.generate_batch(
+                project_id=state["project_id"], prompts=image_prompts
+            )
+
+            valid_images = [p for p in image_files if p is not None]
+            if valid_images:
+                state["image_files"] = valid_images
+                # All scenes use the same image (index 0)
+                state["image_scene_indices"] = [0] * num_scenes
+                state["image_prompts"] = image_prompts
+            else:
+                state["image_files"] = []
+                state["image_scene_indices"] = []
+                state["image_prompts"] = []
+
+            logger.info("Generated single story image", project_id=state["project_id"])
+
+        else:  # per_scene (default)
+            scenes_per_image = state.get("scenes_per_image", 2)
+
+            # Group scenes for prompt generation
+            scene_groups = []
+            for i in range(0, num_scenes, scenes_per_image):
+                group = scenes[i : i + scenes_per_image]
+                scene_groups.append(group)
+
+            # Generate image prompts using LLM (one per group)
+            image_prompts = await _generate_image_prompts_for_groups(scene_groups)
+
+            logger.info(
+                "Generated image prompts",
+                project_id=state["project_id"],
+                count=len(image_prompts),
+            )
+
+            # Generate images
+            image_files = await image_service.generate_batch(
+                project_id=state["project_id"], prompts=image_prompts
+            )
+
+            # Build scene-to-image mapping
+            valid_images = [p for p in image_files if p is not None]
+            image_for_scene = []
+
+            # Map each scene to its corresponding image index
+            for scene_idx in range(num_scenes):
+                image_idx = scene_idx // scenes_per_image
+                if image_idx < len(valid_images):
+                    image_for_scene.append(image_idx)
+                else:
+                    image_for_scene.append(-1)
+
+            state["image_files"] = valid_images
+            state["image_scene_indices"] = image_for_scene
+            state["image_prompts"] = image_prompts
+
+            logger.info(
+                "Image generation completed",
+                project_id=state["project_id"],
+                images_generated=len(valid_images),
+                total_scenes=num_scenes,
+            )
+
         state["progress"] = 0.25
 
         # Update project status
@@ -116,13 +172,6 @@ async def image_generator_node(state: GraphState) -> GraphState:
                 session.add(project)
             await session.commit()
 
-        logger.info(
-            "Image generation completed",
-            project_id=state["project_id"],
-            images_generated=len(valid_images),
-            total_scenes=len(scenes),
-        )
-
     except Exception as e:
         error_msg = f"Image generation failed: {str(e)}"
         logger.error(error_msg, project_id=state["project_id"])
@@ -134,6 +183,43 @@ async def image_generator_node(state: GraphState) -> GraphState:
         state["image_prompts"] = []
 
     return state
+
+
+async def _generate_story_summary(script_json: Dict[str, Any]) -> str:
+    """Generate a single image prompt from the entire script story."""
+    title = script_json.get("title", "")
+    scenes = script_json.get("scenes", [])
+
+    # Build story context
+    all_lines = []
+    for scene in scenes[:5]:  # Use first 5 scenes for summary
+        speaker = scene.get("speaker", "")
+        line = scene.get("line", "")
+        all_lines.append(f"{speaker}: {line}")
+
+    prompt = f"""You are an expert at creating image prompts for AI image generators.
+
+Given this video script, generate ONE image prompt that captures the overall theme and mood.
+The image will be used as a background for the entire video.
+
+Title: {title}
+Script excerpt:
+{chr(10).join(all_lines)}
+
+Requirements:
+1. Create a visually stunning, cinematic background
+2. Capture the overall theme and mood of the story
+3. Use descriptive style keywords (cinematic, 4K, dramatic lighting, etc.)
+4. Keep the prompt under 100 words
+
+Respond with ONLY the image prompt, no quotes or explanation."""
+
+    try:
+        response = await groq_service.generate_raw(prompt)
+        return response.strip()
+    except Exception as e:
+        logger.error(f"Failed to generate story summary: {e}")
+        return "Cinematic abstract background, dramatic lighting, 4K quality, professional video background"
 
 
 async def _generate_image_prompts_for_groups(

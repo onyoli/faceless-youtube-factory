@@ -1,7 +1,7 @@
 """Project-related schemas."""
 
 from datetime import datetime
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Literal
 from uuid import UUID
 from pydantic import BaseModel, Field
 
@@ -12,11 +12,19 @@ class ProjectCreateRequest(BaseModel):
     title: str = Field(..., max_length=255, min_length=1)
     script_prompt: str = Field(..., max_length=5000, min_length=10)
     auto_upload: bool = False
+    image_mode: Literal["per_scene", "single", "upload", "none"] = Field(
+        default="per_scene",
+        description="Image generation mode: per_scene (ratio-based), single (one for entire video), upload (custom image), none (solid backgrounds)",
+    )
     scenes_per_image: int = Field(
         default=2,
         ge=1,
         le=10,
-        description="Number of scenes per generated image (1 = one image per scene, 2 = one image per 2 scenes, etc.)",
+        description="Number of scenes per generated image (only used when image_mode='per_scene')",
+    )
+    background_image_url: Optional[str] = Field(
+        default=None,
+        description="URL/path of uploaded background image (only used when image_mode='upload')",
     )
 
 

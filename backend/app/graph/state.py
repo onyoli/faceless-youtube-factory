@@ -20,7 +20,11 @@ class GraphState(TypedDict):
     # Input from user
     script_prompt: str
     auto_upload: bool
-    scenes_per_image: int  # Number of scenes per generated image (1:1, 1:2, etc.)
+    image_mode: str  # per_scene, single, upload, or none
+    scenes_per_image: (
+        int  # Number of scenes per generated image (only for per_scene mode)
+    )
+    background_image_url: Optional[str]  # Custom image URL (only for upload mode)
 
     # Generated data (populated by nodes)
     script_json: Optional[Dict[str, Any]]

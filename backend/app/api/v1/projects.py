@@ -2,8 +2,18 @@
 
 from typing import Optional
 from uuid import UUID
+from pathlib import Path
+import shutil
 
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
+from fastapi import (
+    APIRouter,
+    Depends,
+    HTTPException,
+    BackgroundTasks,
+    Query,
+    UploadFile,
+    File,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
@@ -36,7 +46,9 @@ async def run_pipeline_background(
     user_id: str,
     script_prompt: str,
     auto_upload: bool,
+    image_mode: str = "per_scene",
     scenes_per_image: int = 2,
+    background_image_url: str = None,
 ):
     """Background task to run the generation pipeline."""
     try:
@@ -46,7 +58,9 @@ async def run_pipeline_background(
             script_prompt=script_prompt,
             auto_upload=auto_upload,
             youtube_metadata=None,
+            image_mode=image_mode,
             scenes_per_image=scenes_per_image,
+            background_image_url=background_image_url,
         )
     except Exception as e:
         logger.error(
@@ -60,12 +74,7 @@ async def create_project(
     background_tasks: BackgroundTasks,
     session: AsyncSession = Depends(get_session),
 ):
-    """
-    Create a new project and start generation pipeline.
-
-    The pipeline runs in the background. Use WebSocket or polling
-    to track progress.
-    """
+    """Create a new project and start the generation pipeline."""
     # Create project record
     project = await project_crud.create(
         session=session, user_id=DEFAULT_USER_ID, title=request.title
@@ -83,7 +92,9 @@ async def create_project(
         user_id=str(DEFAULT_USER_ID),
         script_prompt=request.script_prompt,
         auto_upload=request.auto_upload,
+        image_mode=request.image_mode,
         scenes_per_image=request.scenes_per_image,
+        background_image_url=request.background_image_url,
     )
 
     logger.info("Project created", project_id=str(project.id))
@@ -98,6 +109,46 @@ async def create_project(
         created_at=project.created_at,
         updated_at=project.updated_at,
     )
+
+
+@router.post("/upload-background")
+async def upload_background(
+    file: UploadFile = File(...),
+):
+    """
+    Upload a custom background image for use with image_mode='upload'.
+
+    Returns the URL path to use as background_image_url in createProject.
+    """
+    # Validate file type
+    allowed_types = ["image/jpeg", "image/png", "image/webp"]
+    if file.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid file type. Allowed: {', '.join(allowed_types)}",
+        )
+
+    # Create uploads directory
+    uploads_dir = Path(settings.static_dir) / "uploads"
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+
+    # Generate unique filename
+    import uuid
+
+    ext = file.filename.split(".")[-1] if "." in file.filename else "png"
+    filename = f"{uuid.uuid4()}.{ext}"
+    file_path = uploads_dir / filename
+
+    # Save file
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    # Return relative URL path
+    url_path = f"uploads/{filename}"
+
+    logger.info("Background image uploaded", path=url_path)
+
+    return {"url": url_path}
 
 
 @router.get("", response_model=ProjectListResponse)

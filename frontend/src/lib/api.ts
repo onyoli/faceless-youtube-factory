@@ -40,12 +40,32 @@ export async function createProject(data: {
     title: string;
     script_prompt: string;
     auto_upload: boolean;
+    image_mode?: "per_scene" | "single" | "upload" | "none";
     scenes_per_image?: number;
+    background_image_url?: string;
 }): Promise<Project> {
     return fetchAPI("/api/v1/projects", {
         method: "POST",
         body: JSON.stringify(data),
     });
+}
+
+export async function uploadBackgroundImage(file: File): Promise<{ url: string }> {
+    const formData = new FormData();
+    formData.append("file", file);
+    
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+    const response = await fetch(`${baseUrl}/api/v1/projects/upload-background`, {
+        method: "POST",
+        body: formData,
+    });
+    
+    if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: "Upload failed" }));
+        throw new Error(error.detail || `Upload Error: ${response.status}`);
+    }
+    
+    return response.json();
 }
 
 export async function listProjects(

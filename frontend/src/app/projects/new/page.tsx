@@ -1,21 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { createProject, getYouTubeConnection } from "@/lib/api";
+import { createProject, getYouTubeConnection, uploadBackgroundImage } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Sparkles, Youtube, Image } from "lucide-react";
+import { Loader2, Sparkles, Youtube, Image, Upload, X } from "lucide-react";
+
+type ImageMode = "per_scene" | "single" | "upload" | "none";
 
 export default function NewProjectPage() {
     const router = useRouter();
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
     const [title, setTitle] = useState("");
     const [prompt, setPrompt] = useState("");
     const [autoUpload, setAutoUpload] = useState(false);
+    const [imageMode, setImageMode] = useState<ImageMode>("per_scene");
     const [scenesPerImage, setScenesPerImage] = useState(2);
+    const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+    const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
+    const [isUploading, setIsUploading] = useState(false);
 
     const { data: ytConnection } = useQuery({
         queryKey: ["youtube-connection"],
@@ -29,13 +37,39 @@ export default function NewProjectPage() {
         },
     });
 
+    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsUploading(true);
+        try {
+            const result = await uploadBackgroundImage(file);
+            setUploadedFile(file);
+            setUploadedUrl(result.url);
+        } catch (error) {
+            console.error("Upload failed:", error);
+        } finally {
+            setIsUploading(false);
+        }
+    };
+
+    const handleRemoveFile = () => {
+        setUploadedFile(null);
+        setUploadedUrl(null);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+        }
+    };
+
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         createMutation.mutate({
             title,
             script_prompt: prompt,
             auto_upload: autoUpload,
-            scenes_per_image: scenesPerImage,
+            image_mode: imageMode,
+            scenes_per_image: imageMode === "per_scene" ? scenesPerImage : undefined,
+            background_image_url: imageMode === "upload" ? uploadedUrl || undefined : undefined,
         });
     };
 
@@ -45,11 +79,18 @@ export default function NewProjectPage() {
         "Generate a motivational video about building daily habits, with an inspiring narrator",
     ];
 
+    const imageModeOptions = [
+        { value: "per_scene" as ImageMode, label: "Per Scene", description: "Generate multiple images based on ratio" },
+        { value: "single" as ImageMode, label: "Single Image", description: "One AI image for entire video" },
+        { value: "upload" as ImageMode, label: "Upload", description: "Use your own background image" },
+        { value: "none" as ImageMode, label: "No Images", description: "Solid color backgrounds (fastest)" },
+    ];
+
     const ratioOptions = [
-        { value: 1, label: "1:1 (One image per scene)", description: "Highest quality, more images" },
-        { value: 2, label: "1:2 (One image per 2 scenes)", description: "Balanced (recommended)" },
-        { value: 3, label: "1:3 (One image per 3 scenes)", description: "Faster generation" },
-        { value: 5, label: "1:5 (One image per 5 scenes)", description: "Fastest, fewer images" },
+        { value: 1, label: "1:1", description: "One image per scene" },
+        { value: 2, label: "1:2", description: "One image per 2 scenes" },
+        { value: 3, label: "1:3", description: "One image per 3 scenes" },
+        { value: 5, label: "1:5", description: "One image per 5 scenes" },
     ];
 
     return (
@@ -77,6 +118,7 @@ export default function NewProjectPage() {
                                 maxLength={255}
                             />
                         </div>
+
                         {/* Prompt */}
                         <div className="space-y-2">
                             <label className="text-sm font-medium">Video Description</label>
@@ -93,6 +135,7 @@ export default function NewProjectPage() {
                                 {prompt.length}/5000 characters
                             </p>
                         </div>
+
                         {/* Example Prompts */}
                         <div className="space-y-2">
                             <label className="text-sm font-medium text-muted-foreground">
@@ -111,21 +154,22 @@ export default function NewProjectPage() {
                                 ))}
                             </div>
                         </div>
-                        {/* Image Ratio Selector */}
+
+                        {/* Image Mode Selector */}
                         <div className="space-y-3">
                             <label className="text-sm font-medium flex items-center gap-2">
                                 <Image className="h-4 w-4" />
-                                Image Generation Ratio
+                                Background Images
                             </label>
                             <div className="grid grid-cols-2 gap-2">
-                                {ratioOptions.map((option) => (
+                                {imageModeOptions.map((option) => (
                                     <button
                                         key={option.value}
                                         type="button"
-                                        onClick={() => setScenesPerImage(option.value)}
-                                        className={`text-left p-3 rounded-lg border transition-colors ${scenesPerImage === option.value
-                                                ? "border-primary bg-primary/10"
-                                                : "border-border hover:border-primary/50"
+                                        onClick={() => setImageMode(option.value)}
+                                        className={`text-left p-3 rounded-lg border transition-colors ${imageMode === option.value
+                                            ? "border-primary bg-primary/10"
+                                            : "border-border hover:border-primary/50"
                                             }`}
                                     >
                                         <span className="text-sm font-medium">{option.label}</span>
@@ -136,6 +180,72 @@ export default function NewProjectPage() {
                                 ))}
                             </div>
                         </div>
+
+                        {/* Ratio Selector (only for per_scene mode) */}
+                        {imageMode === "per_scene" && (
+                            <div className="space-y-3">
+                                <label className="text-sm font-medium">Image Ratio</label>
+                                <div className="flex gap-2">
+                                    {ratioOptions.map((option) => (
+                                        <button
+                                            key={option.value}
+                                            type="button"
+                                            onClick={() => setScenesPerImage(option.value)}
+                                            className={`flex-1 p-2 rounded-lg border transition-colors text-center ${scenesPerImage === option.value
+                                                ? "border-primary bg-primary/10"
+                                                : "border-border hover:border-primary/50"
+                                                }`}
+                                        >
+                                            <span className="text-sm font-medium">{option.label}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* File Upload (only for upload mode) */}
+                        {imageMode === "upload" && (
+                            <div className="space-y-3">
+                                <label className="text-sm font-medium">Background Image</label>
+                                {uploadedFile ? (
+                                    <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50">
+                                        <Image className="h-5 w-5 text-primary" />
+                                        <span className="flex-1 text-sm truncate">{uploadedFile.name}</span>
+                                        <button
+                                            type="button"
+                                            onClick={handleRemoveFile}
+                                            className="p-1 rounded hover:bg-secondary"
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <button
+                                        type="button"
+                                        onClick={() => fileInputRef.current?.click()}
+                                        disabled={isUploading}
+                                        className="w-full p-6 rounded-lg border-2 border-dashed border-border hover:border-primary/50 transition-colors flex flex-col items-center gap-2"
+                                    >
+                                        {isUploading ? (
+                                            <Loader2 className="h-6 w-6 animate-spin" />
+                                        ) : (
+                                            <Upload className="h-6 w-6 text-muted-foreground" />
+                                        )}
+                                        <span className="text-sm text-muted-foreground">
+                                            {isUploading ? "Uploading..." : "Click to upload image"}
+                                        </span>
+                                    </button>
+                                )}
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept="image/jpeg,image/png,image/webp"
+                                    onChange={handleFileSelect}
+                                    className="hidden"
+                                />
+                            </div>
+                        )}
+
                         {/* Auto-upload option */}
                         {ytConnection?.connected && (
                             <div className="flex items-center gap-3 p-4 rounded-lg bg-secondary/50">
@@ -152,11 +262,17 @@ export default function NewProjectPage() {
                                 </label>
                             </div>
                         )}
+
                         {/* Submit */}
                         <Button
                             type="submit"
                             className="w-full"
-                            disabled={createMutation.isPending || !title || !prompt}
+                            disabled={
+                                createMutation.isPending ||
+                                !title ||
+                                !prompt ||
+                                (imageMode === "upload" && !uploadedUrl)
+                            }
                         >
                             {createMutation.isPending ? (
                                 <>
@@ -170,6 +286,7 @@ export default function NewProjectPage() {
                                 </>
                             )}
                         </Button>
+
                         {createMutation.isError && (
                             <p className="text-sm text-destructive text-center">
                                 {(createMutation.error as Error).message}

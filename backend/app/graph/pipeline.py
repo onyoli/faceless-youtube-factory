@@ -109,7 +109,9 @@ async def run_pipeline(
     script_prompt: str,
     auto_upload: bool = False,
     youtube_metadata: dict = None,
+    image_mode: str = "per_scene",
     scenes_per_image: int = 2,
+    background_image_url: str = None,
 ) -> GraphState:
     """
     Execute the video generation pipeline.
@@ -120,7 +122,9 @@ async def run_pipeline(
         script_prompt: User's prompt for script generation
         auto_upload: Whether to auto-upload to YouTube
         youtube_metadata: YouTube video metadata (if auto_upload is True)
-        scenes_per_image: How many scenes share one image (default 2 = 1:2 ratio)
+        image_mode: per_scene, single, upload, or none
+        scenes_per_image: How many scenes share one image (for per_scene mode)
+        background_image_url: Custom background image URL (for upload mode)
 
     Returns:
         Final GraphState with all generated data
@@ -129,6 +133,7 @@ async def run_pipeline(
         "Starting pipeline",
         project_id=project_id,
         auto_upload=auto_upload,
+        image_mode=image_mode,
         scenes_per_image=scenes_per_image,
     )
 
@@ -138,7 +143,9 @@ async def run_pipeline(
         "user_id": user_id,
         "script_prompt": script_prompt,
         "auto_upload": auto_upload,
+        "image_mode": image_mode,
         "scenes_per_image": scenes_per_image,
+        "background_image_url": background_image_url,
         "script_json": None,
         "cast_list": None,
         "image_files": [],
