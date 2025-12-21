@@ -31,8 +31,8 @@ export function PreviewTab({ project }: PreviewTabProps) {
             {videoAsset && (
                 <Card className="overflow-hidden">
                     <div className="aspect-video bg-black">
-                        <video controls className="w-full h-full">
-                            <source src={getStaticUrl(videoAsset.url)} type="video/mp4" />
+                        <video controls className="w-full h-full" key={project.updated_at}>
+                            <source src={`${getStaticUrl(videoAsset.url)}?t=${new Date(project.updated_at).getTime()}`} type="video/mp4" />
                         </video>
                     </div>
                     <CardContent className="py-4">

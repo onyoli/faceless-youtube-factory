@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
+from app.config import settings
 from app.crud.project import project_crud
 from app.schemas.project import (
     ProjectCreateRequest,
@@ -210,12 +211,13 @@ async def regenerate_audio(
     session: AsyncSession = Depends(get_session),
 ):
     """Regenerate audio with current cast settings."""
+    import asyncio
     from app.graph.nodes.audio_generator import audio_generator_node
     from app.graph.nodes.video_composer import video_composer_node
     from app.models import Asset, AssetType
     from sqlmodel import delete
 
-    project = await project_crud.get_by_id(
+    project = await project_crud.get_with_relations(
         session=session, project_id=project_id, user_id=DEFAULT_USER_ID
     )
 
@@ -228,9 +230,36 @@ async def regenerate_audio(
             detail="Project needs script and cast before regenerating audio",
         )
 
-    # Get latest script and cast
+    # Get latest script and cast - extract values before async task
     latest_script = max(project.scripts, key=lambda s: s.version)
     latest_cast = project.casts[-1]
+    script_content = latest_script.content
+    cast_assignments = latest_cast.assignments
+    project_id_str = str(project_id)
+
+    # Find existing image files from the file system
+    # Images are saved to static/images/{project_id}/ by image_service
+    from pathlib import Path
+
+    images_dir = Path(settings.static_dir) / "images" / project_id_str
+    existing_image_files = []
+    if images_dir.exists():
+        # Get all png files sorted by name (they're named image_0.png, image_1.png, etc.)
+        png_files = sorted(images_dir.glob("*.png"))
+        existing_image_files = [f"images/{project_id_str}/{f.name}" for f in png_files]
+
+    # Build image_scene_indices based on number of scenes and images
+    num_scenes = len(script_content.get("scenes", []))
+    num_images = len(existing_image_files)
+    if num_images > 0:
+        # Calculate scenes_per_image from existing ratio
+        scenes_per_image = max(1, num_scenes // num_images) if num_images > 0 else 2
+        image_scene_indices = [
+            min(i // scenes_per_image, num_images - 1) for i in range(num_scenes)
+        ]
+    else:
+        scenes_per_image = 2
+        image_scene_indices = []
 
     # Delete existing audio assets
     await session.execute(
@@ -240,43 +269,85 @@ async def regenerate_audio(
     )
     await session.commit()
 
+    # Update status to generating_audio
+    await project_crud.update_status(
+        session=session, project_id=project_id, status=ProjectStatus.GENERATING_AUDIO
+    )
+
     # Build state for audio regeneration
     async def regenerate_task():
         from app.graph.state import GraphState
+        from app.database import get_session_context
 
-        state: GraphState = {
-            "project_id": str(project_id),
-            "user_id": str(DEFAULT_USER_ID),
-            "script_prompt": "",
-            "auto_upload": False,
-            "script_json": latest_script.content,
-            "cast_list": latest_cast.assignments,
-            "audio_files": [],
-            "video_path": None,
-            "youtube_metadata": None,
-            "youtube_video_id": None,
-            "errors": [],
-            "retry_count": 0,
-            "current_step": "regenerating_audio",
-            "progress": 0.3,
-        }
+        try:
+            state: GraphState = {
+                "project_id": project_id_str,
+                "user_id": str(DEFAULT_USER_ID),
+                "script_prompt": "",
+                "auto_upload": False,
+                "scenes_per_image": scenes_per_image,
+                "script_json": script_content,
+                "cast_list": cast_assignments,
+                "audio_files": [],
+                "audio_scene_indices": [],
+                "image_files": existing_image_files,
+                "image_scene_indices": image_scene_indices,
+                "image_prompts": [],
+                "video_path": None,
+                "youtube_metadata": None,
+                "youtube_video_id": None,
+                "errors": [],
+                "retry_count": 0,
+                "current_step": "regenerating_audio",
+                "progress": 0.3,
+            }
 
-        # Run audio generator
-        state = await audio_generator_node(state)
+            # Run audio generator
+            state = await audio_generator_node(state)
 
-        # Run video composer if audio succeded
-        if state["audio_files"]:
-            state = await video_composer_node(state)
+            # Run video composer if audio succeeded
+            if state["audio_files"]:
+                # Update status to generating_video
+                async with get_session_context() as db_session:
+                    await project_crud.update_status(
+                        session=db_session,
+                        project_id=UUID(project_id_str),
+                        status=ProjectStatus.GENERATING_VIDEO,
+                    )
+                state = await video_composer_node(state)
 
-        logger.info(
-            "Audio regeneration complete",
-            project_id=str(project_id),
-            audio_count=len(state["audio_files"]),
-        )
+            # Update status to completed
+            async with get_session_context() as db_session:
+                await project_crud.update_status(
+                    session=db_session,
+                    project_id=UUID(project_id_str),
+                    status=ProjectStatus.COMPLETED,
+                )
 
-    background_tasks.add_task(regenerate_task)
+            logger.info(
+                "Audio regeneration complete",
+                project_id=project_id_str,
+                audio_count=len(state["audio_files"]),
+            )
+        except Exception as e:
+            logger.error(
+                "Audio regeneration failed",
+                project_id=project_id_str,
+                error=str(e),
+            )
+            # Update status to failed
+            async with get_session_context() as db_session:
+                await project_crud.update_status(
+                    session=db_session,
+                    project_id=UUID(project_id_str),
+                    status=ProjectStatus.FAILED,
+                    error_message=str(e),
+                )
 
-    return {"message": "Audio regeneration started", "project_id": str(project_id)}
+    # Use asyncio.create_task for proper async context
+    asyncio.create_task(regenerate_task())
+
+    return {"message": "Audio regeneration started", "project_id": project_id_str}
 
 
 @router.post("/{project_id}/regenerate-video")

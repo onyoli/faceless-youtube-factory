@@ -26,56 +26,63 @@ export function useWebSocket({
 
     const connect = useCallback(() => {
         const wsUrl = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000";
-        const ws = new WebSocket(`${wsUrl}/api/v1/ws/projects/${projectId}`);
+        const fullUrl = `${wsUrl}/api/v1/ws/projects/${projectId}`;
+        
+        try {
+            const ws = new WebSocket(fullUrl);
 
-        ws.onopen = () => {
-            console.log("WebSocket connected");
-            setIsConnected(true);
-            reconnectAttempts.current = 0;
-        };
+            ws.onopen = () => {
+                console.log("WebSocket connected");
+                setIsConnected(true);
+                reconnectAttempts.current = 0;
+            };
 
-        ws.onmessage = (event) => {
-            try {
-                const data: WSEvent = JSON.parse(event.data);
-                setLastEvent(data);
+            ws.onmessage = (event) => {
+                try {
+                    const data: WSEvent = JSON.parse(event.data);
+                    setLastEvent(data);
 
-                switch (data.type) {
-                    case "status_change":
-                        onStatusChange?.(data.status, data.progress);
-                        break;
-                    case "error":
-                        onError?.(data.message);
-                        break;
-                    case "completed":
-                        onCompleted?.(data.video_url);
-                        break;
-                    case "published":
-                        onPublished?.(data.youtube_url);
-                        break;
+                    switch (data.type) {
+                        case "status_change":
+                            onStatusChange?.(data.status, data.progress);
+                            break;
+                        case "error":
+                            onError?.(data.message);
+                            break;
+                        case "completed":
+                            onCompleted?.(data.video_url);
+                            break;
+                        case "published":
+                            onPublished?.(data.youtube_url);
+                            break;
+                    }
+                } catch (error) {
+                    console.error("Error parsing WebSocket message:", error);
                 }
-            } catch (error) {
-                console.error("Error parsing WebSocket message:", error);
-            }
-        };
+            };
 
-        ws.onclose = () => {
-            console.log("WebSocket disconnected");
-            setIsConnected(false);
+            ws.onclose = () => {
+                setIsConnected(false);
 
-            // Attempt to reconnect
-            if (reconnectAttempts.current < maxReconnectAttempts) {
-                reconnectAttempts.current += 1;
-                const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 30000);
-                console.log(`Reconnecting in ${delay}ms...`);
-                setTimeout(connect, delay);
-            }
-        };
+                // Attempt to reconnect
+                if (reconnectAttempts.current < maxReconnectAttempts) {
+                    reconnectAttempts.current += 1;
+                    const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 30000);
+                    console.log(`WebSocket reconnecting in ${delay}ms...`);
+                    setTimeout(connect, delay);
+                }
+            };
 
-        ws.onerror = (error) => {
-            console.error("WebSocket error:", error);
-        };
+            ws.onerror = () => {
+                // Don't log errors - they're expected when backend is unavailable
+                // The onclose handler will handle reconnection
+            };
 
-        wsRef.current = ws;
+            wsRef.current = ws;
+        } catch {
+            // Failed to create WebSocket - will retry via onclose logic
+            console.log("Failed to connect to WebSocket, will retry...");
+        }
     }, [projectId, onStatusChange, onError, onCompleted, onPublished]);
 
     useEffect(() => {

@@ -47,7 +47,6 @@ export default function ProjectDetailPage() {
     const router = useRouter();
     const projectId = params.id as string;
     const queryClient = useQueryClient();
-    const [progress, setProgress] = useState(0);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
     // Cancel mutation
@@ -89,15 +88,31 @@ export default function ProjectDetailPage() {
             return false;
         },
     });
+
+    // Calculate progress based on status
+    const progress = (() => {
+        if (!project) return 0;
+        switch (project.status) {
+            case "generating_script": return 10;
+            case "casting": return 20;
+            case "generating_images": return 35;
+            case "generating_audio": return 55;
+            case "generating_video": return 80;
+            case "uploading_youtube": return 90;
+            case "completed":
+            case "published": return 100;
+            default: return 0;
+        }
+    })();
+
     const handleStatusChange = useCallback(
-        (status: ProjectStatus, prog: number) => {
-            setProgress(prog * 100);
+        () => {
             queryClient.invalidateQueries({ queryKey: ["project", projectId] });
         },
         [projectId, queryClient]
     );
     const handleCompleted = useCallback(
-        (videoUrl: string) => {
+        () => {
             queryClient.invalidateQueries({ queryKey: ["project", projectId] });
         },
         [projectId, queryClient]
