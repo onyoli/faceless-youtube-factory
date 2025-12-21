@@ -31,7 +31,11 @@ DEFAULT_USER_ID = UUID("00000000-0000-0000-0000-000000000001")
 
 
 async def run_pipeline_background(
-    project_id: str, user_id: str, script_prompt: str, auto_upload: bool
+    project_id: str,
+    user_id: str,
+    script_prompt: str,
+    auto_upload: bool,
+    scenes_per_image: int = 2,
 ):
     """Background task to run the generation pipeline."""
     try:
@@ -41,6 +45,7 @@ async def run_pipeline_background(
             script_prompt=script_prompt,
             auto_upload=auto_upload,
             youtube_metadata=None,
+            scenes_per_image=scenes_per_image,
         )
     except Exception as e:
         logger.error(
@@ -77,6 +82,7 @@ async def create_project(
         user_id=str(DEFAULT_USER_ID),
         script_prompt=request.script_prompt,
         auto_upload=request.auto_upload,
+        scenes_per_image=request.scenes_per_image,
     )
 
     logger.info("Project created", project_id=str(project.id))

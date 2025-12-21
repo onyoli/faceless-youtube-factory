@@ -36,10 +36,15 @@ class VideoService:
         audio_files: List[str],
         meta_data: List[dict],
         image_files: List[str] = None,
+        image_scene_indices: List[int] = None,
     ) -> str:
         """
         Componse final video from audio clips and text overlays.
         Runs in a separate thread to not block the async event loop.
+
+        Args:
+            image_scene_indices: List mapping each scene index to an image index.
+                                 For scene i, use image_files[image_scene_indices[i]]
         """
         loop = asyncio.get_running_loop()
 
@@ -60,6 +65,7 @@ class VideoService:
                 "Starting video composition",
                 project_id=project_id,
                 clips=len(audio_files),
+                images=len(image_files) if image_files else 0,
             )
 
             # Execute blocking moviepy code in thread pool
@@ -70,6 +76,7 @@ class VideoService:
                 meta_data,
                 output_path,
                 full_image_paths,
+                image_scene_indices,
             )
 
             # Return relative path
@@ -88,6 +95,7 @@ class VideoService:
         meta_data: List[dict],
         output_path: Path,
         image_paths: List[Path] = None,
+        image_scene_indices: List[int] = None,
     ) -> None:
         """Blocking moviepy video composition logic with Ken Burns effect."""
 
@@ -99,15 +107,17 @@ class VideoService:
             # Create audio clip
             audio_clip = AudioFileClip(str(audio_path))
             duration = audio_clip.duration + 0.5
-            # Get image or use solid color fallback
-            if (
-                image_paths
-                and i < len(image_paths)
-                and image_paths[i]
-                and image_paths[i].exists()
-            ):
+
+            # Get the correct image for this scene using the mapping
+            image_path = None
+            if image_paths and image_scene_indices and i < len(image_scene_indices):
+                img_idx = image_scene_indices[i]
+                if img_idx >= 0 and img_idx < len(image_paths):
+                    image_path = image_paths[img_idx]
+
+            if image_path and image_path.exists():
                 # Use generated image with Ken Burns effect
-                video_clip = self._create_ken_burns_clip(str(image_paths[i]), duration)
+                video_clip = self._create_ken_burns_clip(str(image_path), duration)
             else:
                 # Fallback: solid color background
                 bg_color = (20, 20, 30)

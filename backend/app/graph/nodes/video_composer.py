@@ -68,8 +68,9 @@ async def video_composer_node(state: GraphState) -> GraphState:
         if not audio_files:
             raise ValueError("No audio files to compose video from")
 
-        # Get image files from state
+        # Get image files and mapping from state
         image_files = state.get("image_files", [])
+        image_scene_indices = state.get("image_scene_indices", [])
 
         # Compose video
         video_path = await video_service.create_video(
@@ -77,6 +78,7 @@ async def video_composer_node(state: GraphState) -> GraphState:
             audio_files=audio_files,
             meta_data=meta_data,
             image_files=image_files,
+            image_scene_indices=image_scene_indices,
         )
 
         # Save asset record

@@ -40,6 +40,7 @@ export async function createProject(data: {
     title: string;
     script_prompt: string;
     auto_upload: boolean;
+    scenes_per_image?: number;
 }): Promise<Project> {
     return fetchAPI("/api/v1/projects", {
         method: "POST",

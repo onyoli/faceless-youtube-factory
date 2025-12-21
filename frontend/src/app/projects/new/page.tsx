@@ -8,13 +8,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Sparkles, Youtube } from "lucide-react";
+import { Loader2, Sparkles, Youtube, Image } from "lucide-react";
 
 export default function NewProjectPage() {
     const router = useRouter();
     const [title, setTitle] = useState("");
     const [prompt, setPrompt] = useState("");
     const [autoUpload, setAutoUpload] = useState(false);
+    const [scenesPerImage, setScenesPerImage] = useState(2);
 
     const { data: ytConnection } = useQuery({
         queryKey: ["youtube-connection"],
@@ -34,6 +35,7 @@ export default function NewProjectPage() {
             title,
             script_prompt: prompt,
             auto_upload: autoUpload,
+            scenes_per_image: scenesPerImage,
         });
     };
 
@@ -41,6 +43,13 @@ export default function NewProjectPage() {
         "Create a 3-minute video explaining quantum computing for beginners with a Host and an Expert",
         "Make a funny educational video about why cats love boxes, with two comedic hosts bantering",
         "Generate a motivational video about building daily habits, with an inspiring narrator",
+    ];
+
+    const ratioOptions = [
+        { value: 1, label: "1:1 (One image per scene)", description: "Highest quality, more images" },
+        { value: 2, label: "1:2 (One image per 2 scenes)", description: "Balanced (recommended)" },
+        { value: 3, label: "1:3 (One image per 3 scenes)", description: "Faster generation" },
+        { value: 5, label: "1:5 (One image per 5 scenes)", description: "Fastest, fewer images" },
     ];
 
     return (
@@ -98,6 +107,31 @@ export default function NewProjectPage() {
                                         className="w-full text-left text-sm p-3 rounded-lg border border-border hover:border-primary/50 hover:bg-secondary/50 transition-colors"
                                     >
                                         {example}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                        {/* Image Ratio Selector */}
+                        <div className="space-y-3">
+                            <label className="text-sm font-medium flex items-center gap-2">
+                                <Image className="h-4 w-4" />
+                                Image Generation Ratio
+                            </label>
+                            <div className="grid grid-cols-2 gap-2">
+                                {ratioOptions.map((option) => (
+                                    <button
+                                        key={option.value}
+                                        type="button"
+                                        onClick={() => setScenesPerImage(option.value)}
+                                        className={`text-left p-3 rounded-lg border transition-colors ${scenesPerImage === option.value
+                                                ? "border-primary bg-primary/10"
+                                                : "border-border hover:border-primary/50"
+                                            }`}
+                                    >
+                                        <span className="text-sm font-medium">{option.label}</span>
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            {option.description}
+                                        </p>
                                     </button>
                                 ))}
                             </div>
