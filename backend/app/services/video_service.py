@@ -100,6 +100,11 @@ class VideoService:
         """Blocking moviepy video composition logic with Ken Burns effect."""
 
         clips = []
+
+        # Check if we should use static image (only 1 unique image)
+        unique_images = set(image_paths) if image_paths else set()
+        use_static_image = len(unique_images) == 1
+
         for i, (audio_path, meta) in enumerate(zip(audio_paths, meta_data)):
             if not audio_path.exists():
                 logger.warning(f"Audio file missing: {audio_path}")
@@ -116,8 +121,12 @@ class VideoService:
                     image_path = image_paths[img_idx]
 
             if image_path and image_path.exists():
-                # Use generated image with Ken Burns effect
-                video_clip = self._create_ken_burns_clip(str(image_path), duration)
+                if use_static_image:
+                    # Use static image (no zoom/pan) for single image mode
+                    video_clip = self._create_static_clip(str(image_path), duration)
+                else:
+                    # Use generated image with Ken Burns effect
+                    video_clip = self._create_ken_burns_clip(str(image_path), duration)
             else:
                 # Fallback: solid color background
                 bg_color = (20, 20, 30)
@@ -207,6 +216,25 @@ class VideoService:
         # Crop to target size
         final_clip = CompositeVideoClip(
             [final_clip.set_position("center")], size=(1280, 720)
+        ).set_duration(duration)
+
+        return final_clip
+
+    def _create_static_clip(self, image_path: str, duration: float):
+        """Create a static image clip without any effects (for single image mode)."""
+        from moviepy.editor import ImageClip
+
+        # Load and resize image to target size
+        img_clip = ImageClip(image_path)
+        img_clip = img_clip.resize(height=720)
+
+        # Center crop if wider than target
+        if img_clip.w > 1280:
+            img_clip = img_clip.crop(x_center=img_clip.w / 2, width=1280)
+
+        # Create composite to ensure exact size
+        final_clip = CompositeVideoClip(
+            [img_clip.set_position("center")], size=(1280, 720)
         ).set_duration(duration)
 
         return final_clip
