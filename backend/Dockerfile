@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.4
 FROM nvidia/cuda:12.1.0-runtime-ubuntu22.04
 
 # Install Python and system dependencies
@@ -19,11 +20,13 @@ WORKDIR /app
 # Copy requirements first for better caching
 COPY requirements.txt .
 
-# Install PyTorch with CUDA first (separate layer for caching)
-RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cu121
+# Install PyTorch with CUDA (cached with BuildKit)
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
 
-# Install other Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Install other Python dependencies (cached with BuildKit)
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install -r requirements.txt
 
 # Copy application code
 COPY . .
