@@ -598,3 +598,48 @@ async def delete_project(
     logger.info("Project deleted", project_id=str(project_id))
 
     return {"message": "Project deleted successfully", "project_id": str(project_id)}
+
+
+@router.post("/upload-video")
+async def upload_video(file: UploadFile = File(...)):
+    """Upload a background video for shorts."""
+    allowed_types = ["video/mp4", "video/webm", "video/quicktime"]
+    if file.content_type not in allowed_types:
+        raise HTTPException(status_code=400, detail="Invalid file type")
+
+    uploads_dir = Path(settings.static_dir) / "uploads" / "videos"
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+
+    import uuid
+
+    ext = file.filename.split(".")[-1] if "." in file.filename else "mp4"
+    filename = f"{uuid.uuid4()}.{ext}"
+    file_path = uploads_dir / filename
+
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    return {"url": f"uploads/videos/{filename}"}
+
+
+@router.post("/upload-music")
+async def upload_music(file: UploadFile = File(...)):
+    """Upload background music."""
+
+    allowed_types = ["audio/mpeg", "audio/wav", "audio/mp3", "audio/x-wav"]
+    if file.content_type not in allowed_types:
+        raise HTTPException(status_code=400, detail="Invalid audio type")
+
+    uploads_dir = Path(settings.static_dir) / "uploads" / "music"
+    uploads_dir.mkdir(parents=True, exist_ok=True)
+
+    import uuid
+
+    ext = file.filename.split(".")[-1] if "." in file.filename else "mp3"
+    filename = f"{uuid.uuid4()}.{ext}"
+    file_path = uploads_dir / filename
+
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    return {"url": f"uploads/music/{filename}"}
