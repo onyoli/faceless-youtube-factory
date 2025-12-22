@@ -53,3 +53,4 @@ class GraphState(TypedDict):
     background_video_url: Optional[str]
     background_music_url: Optional[str]
     music_volume: float
+    enable_captions: bool

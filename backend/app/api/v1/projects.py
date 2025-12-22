@@ -53,6 +53,7 @@ async def run_pipeline_background(
     background_video_url: str = None,
     background_music_url: str = None,
     music_volume: float = 0.3,
+    enable_captions: bool = True,
 ):
     """Background task to run the generation pipeline."""
     try:
@@ -69,6 +70,7 @@ async def run_pipeline_background(
             background_video_url=background_video_url,
             background_music_url=background_music_url,
             music_volume=music_volume,
+            enable_captions=enable_captions,
         )
     except Exception as e:
         logger.error(
@@ -107,6 +109,7 @@ async def create_project(
         background_video_url=request.background_video_url,
         background_music_url=request.background_music_url,
         music_volume=request.music_volume,
+        enable_captions=request.enable_captions,
     )
 
     logger.info("Project created", project_id=str(project.id))

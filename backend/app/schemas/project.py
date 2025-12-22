@@ -50,6 +50,10 @@ class ProjectCreateRequest(BaseModel):
         le=1.0,
         description="Background music volume (0-1)",
     )
+    enable_captions: bool = Field(
+        default=True,
+        description="Enable word-by-word captions for shorts",
+    )
 
 
 class ProjectResponse(BaseModel):

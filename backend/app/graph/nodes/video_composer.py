@@ -86,6 +86,7 @@ async def video_composer_node(state: GraphState) -> GraphState:
                 background_video_url=state.get("background_video_url"),
                 background_music_url=state.get("background_music_url"),
                 music_volume=state.get("music_volume", 0.3),
+                enable_captions=state.get("enable_captions", True),
             )
         else:
             # Compose video

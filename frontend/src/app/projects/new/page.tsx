@@ -38,6 +38,7 @@ export default function NewProjectPage() {
     const [uploadedVideoUrl, setUploadedVideoUrl] = useState<string | null>(null);
     const [uploadedMusicUrl, setUploadedMusicUrl] = useState<string | null>(null);
     const [musicVolume, setMusicVolume] = useState(0.3);
+    const [enableCaptions, setEnableCaptions] = useState(true);
 
     // Upload states
     const [isUploading, setIsUploading] = useState(false);
@@ -155,6 +156,7 @@ export default function NewProjectPage() {
             background_video_url: backgroundVideoUrl,
             background_music_url: uploadedMusicUrl || undefined,
             music_volume: musicVolume,
+            enable_captions: videoFormat === "vertical" ? enableCaptions : undefined,
         });
     };
 
@@ -528,6 +530,23 @@ export default function NewProjectPage() {
                                             />
                                         </div>
                                     )}
+                                </div>
+
+                                {/* Captions Toggle */}
+                                <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary/30">
+                                    <input
+                                        type="checkbox"
+                                        id="enableCaptions"
+                                        checked={enableCaptions}
+                                        onChange={(e) => setEnableCaptions(e.target.checked)}
+                                        className="h-4 w-4 rounded border-border"
+                                    />
+                                    <label htmlFor="enableCaptions" className="flex-1 cursor-pointer">
+                                        <span className="font-medium text-sm">Enable Word-by-Word Captions</span>
+                                        <p className="text-xs text-muted-foreground">
+                                            {enableCaptions ? "Captions will appear at center of video" : "No captions (faster generation)"}
+                                        </p>
+                                    </label>
                                 </div>
                             </>
                         )}
