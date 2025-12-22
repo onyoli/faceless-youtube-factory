@@ -7,6 +7,7 @@ from uuid import uuid4
 
 from app.graph.state import GraphState
 from app.services.video_service import video_service
+from app.services.vertical_video_service import vertical_video_service
 from app.models import Asset, AssetType, ProjectStatus
 from app.database import get_session_context
 from app.utils.logging import get_logger
@@ -72,14 +73,29 @@ async def video_composer_node(state: GraphState) -> GraphState:
         image_files = state.get("image_files", [])
         image_scene_indices = state.get("image_scene_indices", [])
 
-        # Compose video
-        video_path = await video_service.create_video(
-            project_id=state["project_id"],
-            audio_files=audio_files,
-            meta_data=meta_data,
-            image_files=image_files,
-            image_scene_indices=image_scene_indices,
-        )
+        # Check if vertical video is requested
+        video_format = state.get("video_format", "horizontal")
+
+        if video_format == "vertical":
+            video_path = await vertical_video_service.create_vertical_video(
+                project_id=state["project_id"],
+                audio_files=audio_files,
+                meta_data=meta_data,
+                image_files=image_files,
+                image_scene_indices=image_scene_indices,
+                background_video_url=state.get("background_video_url"),
+                background_music_url=state.get("background_music_url"),
+                music_volume=state.get("music_volume", 0.3),
+            )
+        else:
+            # Compose video
+            video_path = await video_service.create_video(
+                project_id=state["project_id"],
+                audio_files=audio_files,
+                meta_data=meta_data,
+                image_files=image_files,
+                image_scene_indices=image_scene_indices,
+            )
 
         # Save asset record
         async with get_session_context() as session:
