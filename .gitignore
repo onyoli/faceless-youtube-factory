@@ -7,6 +7,16 @@ __pycache__/
 env/
 venv/
 
+# Static files (generated content)
+backend/static/
+**/static/audio/
+**/static/video/
+**/static/images/
+**/static/uploads/
+**/static/shorts/
+**/static/presets/
+
+
 # Editor/IDE specific files
 .idea/
 .vscode/

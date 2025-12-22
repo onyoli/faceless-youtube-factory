@@ -12,19 +12,43 @@ class ProjectCreateRequest(BaseModel):
     title: str = Field(..., max_length=255, min_length=1)
     script_prompt: str = Field(..., max_length=5000, min_length=10)
     auto_upload: bool = False
+
+    # Video format
+    video_format: Literal["horizontal", "vertical"] = Field(
+        default="horizontal",
+        description="Video format: horizontal (YouTube) or vertical (Shorts/TikTok)",
+    )
+
+    # Image generation mode
     image_mode: Literal["per_scene", "single", "upload", "none"] = Field(
         default="per_scene",
-        description="Image generation mode: per_scene (ratio-based), single (one for entire video), upload (custom image), none (solid backgrounds)",
+        description="Image generation mode: per_scene, single, upload (custom image), none",
     )
     scenes_per_image: int = Field(
         default=2,
         ge=1,
         le=10,
-        description="Number of scenes per generated image (only used when image_mode='per_scene')",
+        description="Number of scenes per generated image (for per_scene mode)",
     )
     background_image_url: Optional[str] = Field(
         default=None,
-        description="URL/path of uploaded background image (only used when image_mode='upload')",
+        description="URL/path of uploaded background image (for image_mode='upload')",
+    )
+
+    # Shorts/vertical specific
+    background_video_url: Optional[str] = Field(
+        default=None,
+        description="Background video URL for shorts (loops behind captions)",
+    )
+    background_music_url: Optional[str] = Field(
+        default=None,
+        description="Background music URL",
+    )
+    music_volume: float = Field(
+        default=0.3,
+        ge=0.0,
+        le=1.0,
+        description="Background music volume (0-1)",
     )
 
 

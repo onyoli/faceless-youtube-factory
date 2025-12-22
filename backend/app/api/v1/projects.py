@@ -49,6 +49,10 @@ async def run_pipeline_background(
     image_mode: str = "per_scene",
     scenes_per_image: int = 2,
     background_image_url: str = None,
+    video_format: str = "horizontal",
+    background_video_url: str = None,
+    background_music_url: str = None,
+    music_volume: float = 0.3,
 ):
     """Background task to run the generation pipeline."""
     try:
@@ -61,6 +65,10 @@ async def run_pipeline_background(
             image_mode=image_mode,
             scenes_per_image=scenes_per_image,
             background_image_url=background_image_url,
+            video_format=video_format,
+            background_video_url=background_video_url,
+            background_music_url=background_music_url,
+            music_volume=music_volume,
         )
     except Exception as e:
         logger.error(
@@ -95,6 +103,10 @@ async def create_project(
         image_mode=request.image_mode,
         scenes_per_image=request.scenes_per_image,
         background_image_url=request.background_image_url,
+        video_format=request.video_format,
+        background_video_url=request.background_video_url,
+        background_music_url=request.background_music_url,
+        music_volume=request.music_volume,
     )
 
     logger.info("Project created", project_id=str(project.id))
@@ -643,3 +655,33 @@ async def upload_music(file: UploadFile = File(...)):
         shutil.copyfileobj(file.file, buffer)
 
     return {"url": f"uploads/music/{filename}"}
+
+
+@router.get("/preset-videos")
+async def list_preset_videos():
+    """
+    List available preset background videos for shorts.
+
+    Place your preset videos in: static/presets/videos/
+    Videos should be named descriptively (e.g., minecraft_parkour.mp4, subway_surfers.mp4)
+    """
+    presets_dir = Path(settings.static_dir) / "presets" / "videos"
+    presets_dir.mkdir(parents=True, exist_ok=True)
+
+    video_extensions = [".mp4", ".webm", ".mov"]
+    presets = []
+
+    for video_file in presets_dir.iterdir():
+        if video_file.suffix.lower() in video_extensions:
+            # Create display name from filename
+            display_name = video_file.stem.replace("_", " ").replace("-", " ").title()
+            presets.append(
+                {
+                    "id": video_file.stem,
+                    "name": display_name,
+                    "url": f"presets/videos/{video_file.name}",
+                    "thumbnail": None,  # Could add thumbnail support later
+                }
+            )
+
+    return {"presets": presets}

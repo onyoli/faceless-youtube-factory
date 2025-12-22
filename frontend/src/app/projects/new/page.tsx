@@ -3,31 +3,54 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { createProject, getYouTubeConnection, uploadBackgroundImage } from "@/lib/api";
+import { createProject, getYouTubeConnection, uploadBackgroundImage, uploadVideo, uploadMusic, getPresetVideos } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Sparkles, Youtube, Image, Upload, X } from "lucide-react";
+import { Loader2, Sparkles, Youtube, Image, Upload, X, Video, Music, Monitor, Smartphone } from "lucide-react";
 
 type ImageMode = "per_scene" | "single" | "upload" | "none";
+type VideoFormat = "horizontal" | "vertical";
+type BackgroundMode = "preset" | "upload" | "image" | "none";
 
 export default function NewProjectPage() {
     const router = useRouter();
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const videoInputRef = useRef<HTMLInputElement>(null);
+    const musicInputRef = useRef<HTMLInputElement>(null);
 
     const [title, setTitle] = useState("");
     const [prompt, setPrompt] = useState("");
     const [autoUpload, setAutoUpload] = useState(false);
+
+    // Video format
+    const [videoFormat, setVideoFormat] = useState<VideoFormat>("horizontal");
+
+    // Horizontal mode options
     const [imageMode, setImageMode] = useState<ImageMode>("per_scene");
     const [scenesPerImage, setScenesPerImage] = useState(2);
-    const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-    const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
+    const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
+
+    // Vertical (shorts) mode options
+    const [backgroundMode, setBackgroundMode] = useState<BackgroundMode>("preset");
+    const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
+    const [uploadedVideoUrl, setUploadedVideoUrl] = useState<string | null>(null);
+    const [uploadedMusicUrl, setUploadedMusicUrl] = useState<string | null>(null);
+    const [musicVolume, setMusicVolume] = useState(0.3);
+
+    // Upload states
     const [isUploading, setIsUploading] = useState(false);
+    const [uploadingType, setUploadingType] = useState<string | null>(null);
 
     const { data: ytConnection } = useQuery({
         queryKey: ["youtube-connection"],
         queryFn: getYouTubeConnection,
+    });
+
+    const { data: presetsData } = useQuery({
+        queryKey: ["preset-videos"],
+        queryFn: getPresetVideos,
     });
 
     const createMutation = useMutation({
@@ -37,39 +60,94 @@ export default function NewProjectPage() {
         },
     });
 
-    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
 
         setIsUploading(true);
+        setUploadingType("image");
         try {
             const result = await uploadBackgroundImage(file);
-            setUploadedFile(file);
-            setUploadedUrl(result.url);
+            setUploadedImageUrl(result.url);
         } catch (error) {
             console.error("Upload failed:", error);
         } finally {
             setIsUploading(false);
+            setUploadingType(null);
         }
     };
 
-    const handleRemoveFile = () => {
-        setUploadedFile(null);
-        setUploadedUrl(null);
-        if (fileInputRef.current) {
-            fileInputRef.current.value = "";
+    const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsUploading(true);
+        setUploadingType("video");
+        try {
+            const result = await uploadVideo(file);
+            setUploadedVideoUrl(result.url);
+            setBackgroundMode("upload");
+        } catch (error) {
+            console.error("Upload failed:", error);
+        } finally {
+            setIsUploading(false);
+            setUploadingType(null);
+        }
+    };
+
+    const handleMusicUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsUploading(true);
+        setUploadingType("music");
+        try {
+            const result = await uploadMusic(file);
+            setUploadedMusicUrl(result.url);
+        } catch (error) {
+            console.error("Upload failed:", error);
+        } finally {
+            setIsUploading(false);
+            setUploadingType(null);
         }
     };
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
+
+        let backgroundVideoUrl: string | undefined;
+        let backgroundImageUrl: string | undefined;
+        let finalImageMode: ImageMode = imageMode;
+
+        if (videoFormat === "vertical") {
+            // For vertical, determine background video
+            if (backgroundMode === "preset" && selectedPreset) {
+                backgroundVideoUrl = selectedPreset;
+            } else if (backgroundMode === "upload" && uploadedVideoUrl) {
+                backgroundVideoUrl = uploadedVideoUrl;
+            } else if (backgroundMode === "image") {
+                finalImageMode = "single";
+            } else {
+                finalImageMode = "none";
+            }
+        } else {
+            // For horizontal
+            if (imageMode === "upload" && uploadedImageUrl) {
+                backgroundImageUrl = uploadedImageUrl;
+            }
+        }
+
         createMutation.mutate({
             title,
             script_prompt: prompt,
             auto_upload: autoUpload,
-            image_mode: imageMode,
-            scenes_per_image: imageMode === "per_scene" ? scenesPerImage : undefined,
-            background_image_url: imageMode === "upload" ? uploadedUrl || undefined : undefined,
+            video_format: videoFormat,
+            image_mode: finalImageMode,
+            scenes_per_image: scenesPerImage,
+            background_image_url: backgroundImageUrl,
+            background_video_url: backgroundVideoUrl,
+            background_music_url: uploadedMusicUrl || undefined,
+            music_volume: musicVolume,
         });
     };
 
@@ -80,17 +158,24 @@ export default function NewProjectPage() {
     ];
 
     const imageModeOptions = [
-        { value: "per_scene" as ImageMode, label: "Per Scene", description: "Generate multiple images based on ratio" },
-        { value: "single" as ImageMode, label: "Single Image", description: "One AI image for entire video" },
-        { value: "upload" as ImageMode, label: "Upload", description: "Use your own background image" },
-        { value: "none" as ImageMode, label: "No Images", description: "Solid color backgrounds (fastest)" },
+        { value: "per_scene" as ImageMode, label: "Per Scene", description: "Multiple AI images" },
+        { value: "single" as ImageMode, label: "Single", description: "One AI image" },
+        { value: "upload" as ImageMode, label: "Upload", description: "Your image" },
+        { value: "none" as ImageMode, label: "None", description: "Solid colors" },
+    ];
+
+    const backgroundModeOptions = [
+        { value: "preset" as BackgroundMode, label: "Preset Videos", description: "Choose from library" },
+        { value: "upload" as BackgroundMode, label: "Upload Video", description: "Your video" },
+        { value: "image" as BackgroundMode, label: "AI Image", description: "Generate one image" },
+        { value: "none" as BackgroundMode, label: "None", description: "Solid color" },
     ];
 
     const ratioOptions = [
-        { value: 1, label: "1:1", description: "One image per scene" },
-        { value: 2, label: "1:2", description: "One image per 2 scenes" },
-        { value: 3, label: "1:3", description: "One image per 3 scenes" },
-        { value: 5, label: "1:5", description: "One image per 5 scenes" },
+        { value: 1, label: "1:1" },
+        { value: 2, label: "1:2" },
+        { value: 3, label: "1:3" },
+        { value: 5, label: "1:5" },
     ];
 
     return (
@@ -129,7 +214,7 @@ export default function NewProjectPage() {
                                 required
                                 minLength={10}
                                 maxLength={5000}
-                                className="min-h-[150px]"
+                                className="min-h-[120px]"
                             />
                             <p className="text-xs text-muted-foreground">
                                 {prompt.length}/5000 characters
@@ -155,95 +240,266 @@ export default function NewProjectPage() {
                             </div>
                         </div>
 
-                        {/* Image Mode Selector */}
+                        {/* Video Format Toggle */}
                         <div className="space-y-3">
-                            <label className="text-sm font-medium flex items-center gap-2">
-                                <Image className="h-4 w-4" />
-                                Background Images
-                            </label>
-                            <div className="grid grid-cols-2 gap-2">
-                                {imageModeOptions.map((option) => (
-                                    <button
-                                        key={option.value}
-                                        type="button"
-                                        onClick={() => setImageMode(option.value)}
-                                        className={`text-left p-3 rounded-lg border transition-colors ${imageMode === option.value
-                                            ? "border-primary bg-primary/10"
-                                            : "border-border hover:border-primary/50"
-                                            }`}
-                                    >
-                                        <span className="text-sm font-medium">{option.label}</span>
-                                        <p className="text-xs text-muted-foreground mt-1">
-                                            {option.description}
-                                        </p>
-                                    </button>
-                                ))}
+                            <label className="text-sm font-medium">Video Format</label>
+                            <div className="grid grid-cols-2 gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setVideoFormat("horizontal")}
+                                    className={`p-4 rounded-lg border-2 transition-colors flex flex-col items-center gap-2 ${videoFormat === "horizontal"
+                                        ? "border-primary bg-primary/10"
+                                        : "border-border hover:border-primary/50"
+                                        }`}
+                                >
+                                    <Monitor className="h-8 w-8" />
+                                    <span className="font-medium">Horizontal</span>
+                                    <span className="text-xs text-muted-foreground">16:9 YouTube</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setVideoFormat("vertical")}
+                                    className={`p-4 rounded-lg border-2 transition-colors flex flex-col items-center gap-2 ${videoFormat === "vertical"
+                                        ? "border-primary bg-primary/10"
+                                        : "border-border hover:border-primary/50"
+                                        }`}
+                                >
+                                    <Smartphone className="h-8 w-8" />
+                                    <span className="font-medium">Vertical</span>
+                                    <span className="text-xs text-muted-foreground">9:16 Shorts/TikTok</span>
+                                </button>
                             </div>
                         </div>
 
-                        {/* Ratio Selector (only for per_scene mode) */}
-                        {imageMode === "per_scene" && (
-                            <div className="space-y-3">
-                                <label className="text-sm font-medium">Image Ratio</label>
-                                <div className="flex gap-2">
-                                    {ratioOptions.map((option) => (
-                                        <button
-                                            key={option.value}
-                                            type="button"
-                                            onClick={() => setScenesPerImage(option.value)}
-                                            className={`flex-1 p-2 rounded-lg border transition-colors text-center ${scenesPerImage === option.value
-                                                ? "border-primary bg-primary/10"
-                                                : "border-border hover:border-primary/50"
-                                                }`}
-                                        >
-                                            <span className="text-sm font-medium">{option.label}</span>
-                                        </button>
-                                    ))}
+                        {/* Horizontal Mode Options */}
+                        {videoFormat === "horizontal" && (
+                            <>
+                                <div className="space-y-3">
+                                    <label className="text-sm font-medium flex items-center gap-2">
+                                        <Image className="h-4 w-4" />
+                                        Background Images
+                                    </label>
+                                    <div className="grid grid-cols-4 gap-2">
+                                        {imageModeOptions.map((option) => (
+                                            <button
+                                                key={option.value}
+                                                type="button"
+                                                onClick={() => setImageMode(option.value)}
+                                                className={`text-center p-2 rounded-lg border transition-colors ${imageMode === option.value
+                                                    ? "border-primary bg-primary/10"
+                                                    : "border-border hover:border-primary/50"
+                                                    }`}
+                                            >
+                                                <span className="text-sm font-medium block">{option.label}</span>
+                                                <span className="text-xs text-muted-foreground">{option.description}</span>
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
+
+                                {imageMode === "per_scene" && (
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium">Image Ratio</label>
+                                        <div className="flex gap-2">
+                                            {ratioOptions.map((option) => (
+                                                <button
+                                                    key={option.value}
+                                                    type="button"
+                                                    onClick={() => setScenesPerImage(option.value)}
+                                                    className={`flex-1 p-2 rounded-lg border transition-colors ${scenesPerImage === option.value
+                                                        ? "border-primary bg-primary/10"
+                                                        : "border-border hover:border-primary/50"
+                                                        }`}
+                                                >
+                                                    {option.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {imageMode === "upload" && (
+                                    <div className="space-y-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => fileInputRef.current?.click()}
+                                            disabled={isUploading}
+                                            className="w-full p-4 rounded-lg border-2 border-dashed border-border hover:border-primary/50 transition-colors flex items-center justify-center gap-2"
+                                        >
+                                            {uploadingType === "image" ? (
+                                                <Loader2 className="h-5 w-5 animate-spin" />
+                                            ) : uploadedImageUrl ? (
+                                                <>
+                                                    <Image className="h-5 w-5 text-primary" />
+                                                    <span>Image uploaded ✓</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Upload className="h-5 w-5" />
+                                                    <span>Upload background image</span>
+                                                </>
+                                            )}
+                                        </button>
+                                        <input
+                                            ref={fileInputRef}
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={handleImageUpload}
+                                            className="hidden"
+                                        />
+                                    </div>
+                                )}
+                            </>
                         )}
 
-                        {/* File Upload (only for upload mode) */}
-                        {imageMode === "upload" && (
-                            <div className="space-y-3">
-                                <label className="text-sm font-medium">Background Image</label>
-                                {uploadedFile ? (
-                                    <div className="flex items-center gap-3 p-3 rounded-lg bg-secondary/50">
-                                        <Image className="h-5 w-5 text-primary" />
-                                        <span className="flex-1 text-sm truncate">{uploadedFile.name}</span>
+                        {/* Vertical Mode Options */}
+                        {videoFormat === "vertical" && (
+                            <>
+                                <div className="space-y-3">
+                                    <label className="text-sm font-medium flex items-center gap-2">
+                                        <Video className="h-4 w-4" />
+                                        Background
+                                    </label>
+                                    <div className="grid grid-cols-4 gap-2">
+                                        {backgroundModeOptions.map((option) => (
+                                            <button
+                                                key={option.value}
+                                                type="button"
+                                                onClick={() => setBackgroundMode(option.value)}
+                                                className={`text-center p-2 rounded-lg border transition-colors ${backgroundMode === option.value
+                                                    ? "border-primary bg-primary/10"
+                                                    : "border-border hover:border-primary/50"
+                                                    }`}
+                                            >
+                                                <span className="text-sm font-medium block">{option.label}</span>
+                                                <span className="text-xs text-muted-foreground">{option.description}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Preset Videos Selector */}
+                                {backgroundMode === "preset" && (
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium">Select Preset Video</label>
+                                        {presetsData?.presets && presetsData.presets.length > 0 ? (
+                                            <div className="grid grid-cols-2 gap-2">
+                                                {presetsData.presets.map((preset) => (
+                                                    <button
+                                                        key={preset.id}
+                                                        type="button"
+                                                        onClick={() => setSelectedPreset(preset.url)}
+                                                        className={`p-3 rounded-lg border transition-colors text-left ${selectedPreset === preset.url
+                                                            ? "border-primary bg-primary/10"
+                                                            : "border-border hover:border-primary/50"
+                                                            }`}
+                                                    >
+                                                        <Video className="h-4 w-4 mb-1" />
+                                                        <span className="text-sm">{preset.name}</span>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm text-muted-foreground p-4 border border-dashed rounded-lg text-center">
+                                                No preset videos available. Add videos to static/presets/videos/
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Upload Video */}
+                                {backgroundMode === "upload" && (
+                                    <div className="space-y-2">
                                         <button
                                             type="button"
-                                            onClick={handleRemoveFile}
-                                            className="p-1 rounded hover:bg-secondary"
+                                            onClick={() => videoInputRef.current?.click()}
+                                            disabled={isUploading}
+                                            className="w-full p-4 rounded-lg border-2 border-dashed border-border hover:border-primary/50 transition-colors flex items-center justify-center gap-2"
                                         >
-                                            <X className="h-4 w-4" />
+                                            {uploadingType === "video" ? (
+                                                <Loader2 className="h-5 w-5 animate-spin" />
+                                            ) : uploadedVideoUrl ? (
+                                                <>
+                                                    <Video className="h-5 w-5 text-primary" />
+                                                    <span>Video uploaded ✓</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Upload className="h-5 w-5" />
+                                                    <span>Upload background video</span>
+                                                </>
+                                            )}
                                         </button>
+                                        <input
+                                            ref={videoInputRef}
+                                            type="file"
+                                            accept="video/mp4,video/webm,video/quicktime"
+                                            onChange={handleVideoUpload}
+                                            className="hidden"
+                                        />
                                     </div>
-                                ) : (
+                                )}
+
+                                {/* Background Music */}
+                                <div className="space-y-3">
+                                    <label className="text-sm font-medium flex items-center gap-2">
+                                        <Music className="h-4 w-4" />
+                                        Background Music (Optional)
+                                    </label>
                                     <button
                                         type="button"
-                                        onClick={() => fileInputRef.current?.click()}
+                                        onClick={() => musicInputRef.current?.click()}
                                         disabled={isUploading}
-                                        className="w-full p-6 rounded-lg border-2 border-dashed border-border hover:border-primary/50 transition-colors flex flex-col items-center gap-2"
+                                        className="w-full p-3 rounded-lg border border-dashed border-border hover:border-primary/50 transition-colors flex items-center justify-center gap-2"
                                     >
-                                        {isUploading ? (
-                                            <Loader2 className="h-6 w-6 animate-spin" />
+                                        {uploadingType === "music" ? (
+                                            <Loader2 className="h-5 w-5 animate-spin" />
+                                        ) : uploadedMusicUrl ? (
+                                            <>
+                                                <Music className="h-5 w-5 text-primary" />
+                                                <span>Music uploaded ✓</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setUploadedMusicUrl(null);
+                                                    }}
+                                                    className="ml-2 p-1 hover:bg-secondary rounded"
+                                                >
+                                                    <X className="h-4 w-4" />
+                                                </button>
+                                            </>
                                         ) : (
-                                            <Upload className="h-6 w-6 text-muted-foreground" />
+                                            <>
+                                                <Upload className="h-4 w-4" />
+                                                <span className="text-sm">Upload music</span>
+                                            </>
                                         )}
-                                        <span className="text-sm text-muted-foreground">
-                                            {isUploading ? "Uploading..." : "Click to upload image"}
-                                        </span>
                                     </button>
-                                )}
-                                <input
-                                    ref={fileInputRef}
-                                    type="file"
-                                    accept="image/jpeg,image/png,image/webp"
-                                    onChange={handleFileSelect}
-                                    className="hidden"
-                                />
-                            </div>
+                                    <input
+                                        ref={musicInputRef}
+                                        type="file"
+                                        accept="audio/mpeg,audio/wav,audio/mp3"
+                                        onChange={handleMusicUpload}
+                                        className="hidden"
+                                    />
+
+                                    {uploadedMusicUrl && (
+                                        <div className="space-y-1">
+                                            <label className="text-xs text-muted-foreground">Music Volume: {Math.round(musicVolume * 100)}%</label>
+                                            <input
+                                                type="range"
+                                                min="0"
+                                                max="1"
+                                                step="0.1"
+                                                value={musicVolume}
+                                                onChange={(e) => setMusicVolume(parseFloat(e.target.value))}
+                                                className="w-full"
+                                            />
+                                        </div>
+                                    )}
+                                </div>
+                            </>
                         )}
 
                         {/* Auto-upload option */}
@@ -271,7 +527,9 @@ export default function NewProjectPage() {
                                 createMutation.isPending ||
                                 !title ||
                                 !prompt ||
-                                (imageMode === "upload" && !uploadedUrl)
+                                (videoFormat === "horizontal" && imageMode === "upload" && !uploadedImageUrl) ||
+                                (videoFormat === "vertical" && backgroundMode === "preset" && !selectedPreset) ||
+                                (videoFormat === "vertical" && backgroundMode === "upload" && !uploadedVideoUrl)
                             }
                         >
                             {createMutation.isPending ? (
@@ -282,7 +540,7 @@ export default function NewProjectPage() {
                             ) : (
                                 <>
                                     <Sparkles className="h-4 w-4" />
-                                    Generate Video
+                                    Generate {videoFormat === "vertical" ? "Short" : "Video"}
                                 </>
                             )}
                         </Button>

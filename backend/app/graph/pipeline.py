@@ -112,6 +112,11 @@ async def run_pipeline(
     image_mode: str = "per_scene",
     scenes_per_image: int = 2,
     background_image_url: str = None,
+    # Shorts/vertical video fields
+    video_format: str = "horizontal",
+    background_video_url: str = None,
+    background_music_url: str = None,
+    music_volume: float = 0.3,
 ) -> GraphState:
     """
     Execute the video generation pipeline.
@@ -125,6 +130,10 @@ async def run_pipeline(
         image_mode: per_scene, single, upload, or none
         scenes_per_image: How many scenes share one image (for per_scene mode)
         background_image_url: Custom background image URL (for upload mode)
+        video_format: "horizontal" or "vertical" (shorts)
+        background_video_url: Video background for shorts
+        background_music_url: Background music URL
+        music_volume: Volume for background music (0-1)
 
     Returns:
         Final GraphState with all generated data
@@ -133,6 +142,7 @@ async def run_pipeline(
         "Starting pipeline",
         project_id=project_id,
         auto_upload=auto_upload,
+        video_format=video_format,
         image_mode=image_mode,
         scenes_per_image=scenes_per_image,
     )
@@ -146,6 +156,10 @@ async def run_pipeline(
         "image_mode": image_mode,
         "scenes_per_image": scenes_per_image,
         "background_image_url": background_image_url,
+        "video_format": video_format,
+        "background_video_url": background_video_url,
+        "background_music_url": background_music_url,
+        "music_volume": music_volume,
         "script_json": None,
         "cast_list": None,
         "image_files": [],

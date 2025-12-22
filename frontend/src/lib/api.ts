@@ -40,14 +40,29 @@ export async function createProject(data: {
     title: string;
     script_prompt: string;
     auto_upload: boolean;
+    video_format?: "horizontal" | "vertical";
     image_mode?: "per_scene" | "single" | "upload" | "none";
     scenes_per_image?: number;
     background_image_url?: string;
+    background_video_url?: string;
+    background_music_url?: string;
+    music_volume?: number;
 }): Promise<Project> {
     return fetchAPI("/api/v1/projects", {
         method: "POST",
         body: JSON.stringify(data),
     });
+}
+
+export interface PresetVideo {
+    id: string;
+    name: string;
+    url: string;
+    thumbnail: string | null;
+}
+
+export async function getPresetVideos(): Promise<{ presets: PresetVideo[] }> {
+    return fetchAPI("/api/v1/projects/preset-videos");
 }
 
 export async function uploadBackgroundImage(file: File): Promise<{ url: string }> {
