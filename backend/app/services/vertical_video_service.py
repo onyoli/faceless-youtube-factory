@@ -21,9 +21,9 @@ logger = get_logger(__name__)
 # Dedicated executor for video processing
 vertical_video_executor = ThreadPoolExecutor(max_workers=1)
 
-# Video dimensions (9:16 vertical)
-WIDTH = 720
-HEIGHT = 1280
+# Video dimensions (9:16 vertical, 1080p)
+WIDTH = 1080
+HEIGHT = 1920
 
 
 class VerticalVideoService:
