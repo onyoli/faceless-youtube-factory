@@ -1,5 +1,6 @@
 """YouTube integration endpoints."""
-from datetime import datetime, timezone
+
+from datetime import datetime, timezone, timedelta
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
@@ -33,26 +34,23 @@ DEFAULT_USER_ID = UUID("00000000-0000-0000-0000-000000000001")
 async def get_auth_url():
     """
     Generate OAuth authorization URL for YouTube.
-    
+
     Frontend should redirect user to this URL to initiate OAuth flow.
     """
     auth_url, state = youtube_service.get_auth_url()
 
-    return YouTubeAuthUrlResponse(
-        auth_url=auth_url,
-        state=state
-    )
+    return YouTubeAuthUrlResponse(auth_url=auth_url, state=state)
 
 
 @router.get("/callback")
 async def youtube_callback(
-    code: str=Query(...),
-    state: str=Query(None),
-    session: AsyncSession=Depends(get_session)
+    code: str = Query(...),
+    state: str = Query(None),
+    session: AsyncSession = Depends(get_session),
 ):
     """
     Handle OAuth callback from Google.
-    
+
     Exchanges authorization code for tokens and saves connection.
     Redirects to frontend dashboard on success.
     """
@@ -69,60 +67,58 @@ async def youtube_callback(
             user_id=DEFAULT_USER_ID,
             access_token=token_data["token"],
             refresh_token=token_data["refresh_token"],
-            expires_at=datetime.now(timezone.utc) + timedelta(seconds=settings.youtube_token_expires_in),
+            expires_at=datetime.now(timezone.utc)
+            + timedelta(seconds=settings.youtube_token_expires_in),
             channel_id=channel_info["id"],
             channel_name=channel_info["name"],
-            channel_url=channel_info["url"]
+            channel_url=channel_info["url"],
         )
 
         logger.info(
             "YouTube connected",
             channel_id=channel_info["channel_id"],
-            channel_title=channel_info["title"]
+            channel_title=channel_info["title"],
         )
 
         # Redirect to frontend
         return RedirectResponse(
-            url=f"{settings.frontend_url}?youtube_connected=true"
+            url=f"{settings.frontend_url}/youtube/callback?youtube_connected=true"
         )
 
     except Exception as e:
         logger.error("YouTube OAuth callback failed", error=str(e))
         return RedirectResponse(
-            url=f"{settings.frontend_url}?youtube_error={str(e)}"
+            url=f"{settings.frontend_url}/youtube/callback?youtube_error={str(e)}"
         )
 
-    
+
 @router.get("/connection", response_model=YouTubeConnectionResponse)
-async def get_connection_status(session: AsyncSession=Depends(get_session)):
+async def get_connection_status(session: AsyncSession = Depends(get_session)):
     """Check if user has an active YouTube connection."""
     connection = await youtube_crud.get_connection(
-        session=session,
-        user_id=DEFAULT_USER_ID
+        session=session, user_id=DEFAULT_USER_ID
     )
 
     if connection:
         return YouTubeConnectionResponse(
             connected=True,
             channel_id=connection.channel_id,
-            channel_title=connection.channel_title
+            channel_title=connection.channel_title,
         )
 
     return YouTubeConnectionResponse(connected=False)
 
 
 @router.delete("/disconnect")
-async def disconnect_youtube(session: AsyncSession=Depends(get_session)):
+async def disconnect_youtube(session: AsyncSession = Depends(get_session)):
     """Disconnect YouTube account."""
     success = await youtube_crud.deactivate_connection(
-        session=session,
-        user_id=DEFAULT_USER_ID
+        session=session, user_id=DEFAULT_USER_ID
     )
 
     if not success:
         raise HTTPException(
-            status_code=404,
-            detail="No active YouTube connection found"
+            status_code=404, detail="No active YouTube connection found"
         )
 
     logger.info("YouTube disconnected", user_id=str(DEFAULT_USER_ID))
@@ -131,23 +127,20 @@ async def disconnect_youtube(session: AsyncSession=Depends(get_session)):
 
 
 @router.post(
-    "/projects/{project_id}/generate-metadata",
-    response_model=YouTubeMetadataResponse
+    "/projects/{project_id}/generate-metadata", response_model=YouTubeMetadataResponse
 )
 async def generate_metadata(
     project_id: UUID,
     request: YouTubeMetadataRequest,
-    session: AsyncSession=Depends(get_session)
+    session: AsyncSession = Depends(get_session),
 ):
     """
     Generate SEO-optimized YouTube metadata using AI.
-    
+
     Uses the project's script content to generate title, description, and tags.
     """
     project = await project_crud.get_with_relations(
-        session=session,
-        project_id=project_id,
-        user_id=DEFAULT_USER_ID
+        session=session, project_id=project_id, user_id=DEFAULT_USER_ID
     )
 
     if not project:
@@ -155,8 +148,7 @@ async def generate_metadata(
 
     if not project.scripts:
         raise HTTPException(
-            status_code=400,
-            detail="Project has no script to generate metadata from"
+            status_code=400, detail="Project has no script to generate metadata from"
         )
 
     # Get latest script content
@@ -165,11 +157,10 @@ async def generate_metadata(
 
     # Generate metadata
     metadata = await groq_service.generate_metadata(
-        script_content=script_content,
-        context=request.video_context
+        script_content=script_content, context=request.video_context
     )
 
-     # Save to database
+    # Save to database
     await youtube_crud.save_metadata(
         session=session,
         project_id=project_id,
@@ -177,14 +168,14 @@ async def generate_metadata(
         description=metadata["description"],
         tags=metadata["tags"],
         category_id=metadata["category_id"],
-        privacy_status="private"
+        privacy_status="private",
     )
 
     return YouTubeMetadataResponse(
         title=metadata["title"],
         description=metadata["description"],
         tags=metadata["tags"],
-        category_id=metadata["category_id"]
+        category_id=metadata["category_id"],
     )
 
 
@@ -193,20 +184,18 @@ async def upload_to_youtube(
     project_id: UUID,
     request: YouTubeUploadRequest,
     background_tasks: BackgroundTasks,
-    session: AsyncSession = Depends(get_session)
+    session: AsyncSession = Depends(get_session),
 ):
     """
     Upload completed video to YouTube.
-    
+
     Prerequisites:
     - Project status must be "completed"
     - User must have an active YouTube connection
     """
     # Get project
     project = await project_crud.get_with_relations(
-        session=session,
-        project_id=project_id,
-        user_id=DEFAULT_USER_ID
+        session=session, project_id=project_id, user_id=DEFAULT_USER_ID
     )
 
     if not project:
@@ -215,31 +204,28 @@ async def upload_to_youtube(
     if project.status != ProjectStatus.COMPLETED:
         raise HTTPException(
             status_code=400,
-            detail=f"Project must be completed to upload. Current status: {project.status.value}"
+            detail=f"Project must be completed to upload. Current status: {project.status.value}",
         )
 
     # Check YouTube connection
     connection = await youtube_crud.get_connection(
-        session=session,
-        user_id=DEFAULT_USER_ID
+        session=session, user_id=DEFAULT_USER_ID
     )
 
     if not connection:
         raise HTTPException(
             status_code=400,
-            detail="No YouTube connection. Please connect your YouTube account first."
+            detail="No YouTube connection. Please connect your YouTube account first.",
         )
 
     # Find video asset
     video_asset = next(
-        (a for a in project.assets if a.asset_type.value == "video"), 
-        None
+        (a for a in project.assets if a.asset_type.value == "video"), None
     )
 
     if not video_asset:
         raise HTTPException(
-            status_code=400,
-            detail="No video file found for this project"
+            status_code=400, detail="No video file found for this project"
         )
 
     # Save metadata
@@ -250,23 +236,21 @@ async def upload_to_youtube(
         description=request.description,
         tags=request.tags,
         category_id=request.category_id,
-        privacy_status=request.privacy_status.value
+        privacy_status=request.privacy_status.value,
     )
 
     # Update project status
     await project_crud.update_status(
-        session=session,
-        project_id=project_id,
-        status=ProjectStatus.UPLOADING_YOUTUBE
+        session=session, project_id=project_id, status=ProjectStatus.UPLOADING_YOUTUBE
     )
 
     # TODO: Add background task to actually upload
     # For now, return success message
 
     logger.info("YouTube upload initiated", project_id=str(project_id))
-    
+
     return {
         "status": "uploading_youtube",
         "message": "Upload started",
-        "project_id": str(project_id)
+        "project_id": str(project_id),
     }

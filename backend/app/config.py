@@ -55,7 +55,7 @@ class Settings(BaseSettings):
     # Google OAuth for YouTube API
     google_client_id: str = ""
     google_client_secret: str = ""
-    oauth_redirect_uri: str = "http://localhost:3000/api/youtube/callback"
+    oauth_redirect_uri: str = "http://localhost:8000/api/v1/youtube/callback"
 
     # Token Encryption
     token_encryption_key: str = ""
