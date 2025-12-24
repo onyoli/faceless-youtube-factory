@@ -69,9 +69,9 @@ async def youtube_callback(
             refresh_token=token_data["refresh_token"],
             expires_at=datetime.now(timezone.utc)
             + timedelta(seconds=settings.youtube_token_expires_in),
-            channel_id=channel_info["id"],
-            channel_name=channel_info["name"],
-            channel_url=channel_info["url"],
+            channel_id=channel_info["channel_id"],
+            channel_name=channel_info["title"],
+            channel_url=f"https://youtube.com/channel/{channel_info['channel_id']}",
         )
 
         logger.info(
