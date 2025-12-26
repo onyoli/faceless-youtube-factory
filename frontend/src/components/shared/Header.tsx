@@ -5,13 +5,15 @@ import { useQuery } from "@tanstack/react-query";
 import { UserButton } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { getYouTubeConnection } from "@/lib/api";
+import { useApi } from "@/lib/useApi";
 import { Youtube, Plus, Zap } from "lucide-react";
 
 export function Header() {
+    const api = useApi();
+
     const { data: ytConnection } = useQuery({
         queryKey: ["youtube-connection"],
-        queryFn: getYouTubeConnection,
+        queryFn: () => api.getYouTubeConnection(),
     });
 
     return (

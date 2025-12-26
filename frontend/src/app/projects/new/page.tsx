@@ -3,7 +3,7 @@
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { createProject, getYouTubeConnection, uploadBackgroundImage, uploadVideo, uploadMusic, getPresetVideos, getPresetMusic } from "@/lib/api";
+import { useApi } from "@/lib/useApi";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,7 @@ type BackgroundMode = "preset" | "upload" | "image" | "none";
 
 export default function NewProjectPage() {
     const router = useRouter();
+    const api = useApi();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const videoInputRef = useRef<HTMLInputElement>(null);
     const musicInputRef = useRef<HTMLInputElement>(null);
@@ -46,21 +47,21 @@ export default function NewProjectPage() {
 
     const { data: ytConnection } = useQuery({
         queryKey: ["youtube-connection"],
-        queryFn: getYouTubeConnection,
+        queryFn: () => api.getYouTubeConnection(),
     });
 
     const { data: presetsData } = useQuery({
         queryKey: ["preset-videos"],
-        queryFn: getPresetVideos,
+        queryFn: () => api.getPresetVideos(),
     });
 
     const { data: musicPresetsData } = useQuery({
         queryKey: ["preset-music"],
-        queryFn: getPresetMusic,
+        queryFn: () => api.getPresetMusic(),
     });
 
     const createMutation = useMutation({
-        mutationFn: createProject,
+        mutationFn: api.createProject,
         onSuccess: (project) => {
             router.push(`/projects/${project.id}`);
         },

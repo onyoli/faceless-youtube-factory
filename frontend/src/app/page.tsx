@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
-import { listProjects } from "@/lib/api";
+import { useApi } from "@/lib/useApi";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,9 +23,11 @@ const statusConfig: Record<ProjectStatus, { label: string; variant: "default" | 
 };
 
 export default function DashboardPage() {
+  const api = useApi();
+
   const { data, isLoading, error } = useQuery({
     queryKey: ["projects"],
-    queryFn: () => listProjects(),
+    queryFn: () => api.listProjects(),
     refetchInterval: 5000,
   });
 
