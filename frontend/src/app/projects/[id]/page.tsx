@@ -2,7 +2,7 @@
 import { useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
-import { getProject, cancelProject, deleteProject } from "@/lib/api";
+import { useApi } from "@/lib/useApi";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -48,10 +48,11 @@ export default function ProjectDetailPage() {
     const projectId = params.id as string;
     const queryClient = useQueryClient();
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const api = useApi();
 
     // Cancel mutation
     const cancelMutation = useMutation({
-        mutationFn: () => cancelProject(projectId),
+        mutationFn: () => api.cancelProject(projectId),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["project", projectId] });
         },
@@ -59,7 +60,7 @@ export default function ProjectDetailPage() {
 
     // Delete mutation
     const deleteMutation = useMutation({
-        mutationFn: () => deleteProject(projectId),
+        mutationFn: () => api.deleteProject(projectId),
         onSuccess: () => {
             router.push("/");
         },
@@ -78,7 +79,7 @@ export default function ProjectDetailPage() {
     };
     const { data: project, isLoading, error } = useQuery({
         queryKey: ["project", projectId],
-        queryFn: () => getProject(projectId),
+        queryFn: () => api.getProject(projectId),
         refetchInterval: (query) => {
             const status = query.state.data?.status;
             // Poll more frequently during generation

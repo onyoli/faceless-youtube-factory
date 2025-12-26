@@ -8,7 +8,6 @@ from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 
-from app.config import settings
 from app.utils.logging import get_logger
 
 logger = get_logger(__name__)

@@ -74,7 +74,7 @@ export default function NewProjectPage() {
         setIsUploading(true);
         setUploadingType("image");
         try {
-            const result = await uploadBackgroundImage(file);
+            const result = await api.uploadBackgroundImage(file);
             setUploadedImageUrl(result.url);
         } catch (error) {
             console.error("Upload failed:", error);
@@ -91,7 +91,7 @@ export default function NewProjectPage() {
         setIsUploading(true);
         setUploadingType("video");
         try {
-            const result = await uploadVideo(file);
+            const result = await api.uploadVideo(file);
             setUploadedVideoUrl(result.url);
             setBackgroundMode("upload");
         } catch (error) {
@@ -109,7 +109,7 @@ export default function NewProjectPage() {
         setIsUploading(true);
         setUploadingType("music");
         try {
-            const result = await uploadMusic(file);
+            const result = await api.uploadMusic(file);
             setUploadedMusicUrl(result.url);
         } catch (error) {
             console.error("Upload failed:", error);
