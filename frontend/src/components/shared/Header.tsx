@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
+import { UserButton } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { getYouTubeConnection } from "@/lib/api";
@@ -51,6 +52,16 @@ export function Header() {
                                 New Project
                             </Button>
                         </Link>
+
+                        {/* User Profile */}
+                        <UserButton
+                            afterSignOutUrl="/sign-in"
+                            appearance={{
+                                elements: {
+                                    avatarBox: "h-8 w-8",
+                                },
+                            }}
+                        />
                     </div>
                 </div>
             </div>
