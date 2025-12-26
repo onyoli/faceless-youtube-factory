@@ -32,7 +32,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 COPY . .
 
 # Create static directories
-RUN mkdir -p static/audio static/videos static/previews static/images
+RUN mkdir -p static/audio static/videos static/previews static/images static/temp static/shorts
 
 # Expose port
 EXPOSE 8000
