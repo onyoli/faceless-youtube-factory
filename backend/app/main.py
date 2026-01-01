@@ -2,6 +2,7 @@
 FastAPI application entry point.
 Configures the application with all routes, middleware, and lifecycle handlers.
 """
+
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -22,18 +23,19 @@ from app.api.v1.router import api_router
 configure_logging()
 logger = get_logger(__name__)
 
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
     Application lifespan manager.
-    
+
     Handles startup and shutdown events:
     - Startup: Initialize DB, create directories, log configuration
     - Shutdown: Close DB connections, cleanup resources
     """
     # Startup
     logger.info("Starting application...", debug=settings.debug)
-    
+
     # Create static directories if they don't exit
     static_path = Path(settings.static_dir)
     for subdir in ["audio", "videos", "previews"]:
@@ -44,14 +46,27 @@ async def lifespan(app: FastAPI):
     if settings.debug:
         # Only auto-create tables in development
         # Production should use: alembic upgrade head
-        pass # Tables are created by init.sql in Docker
+        pass  # Tables are created by init.sql in Docker
+
+    # Start scheduler for automated video generation
+    from app.services.scheduler_service import start_scheduler, stop_scheduler
+    import os
+
+    if os.environ.get("SCHEDULER_ENABLED", "true").lower() == "true":
+        await start_scheduler()
+        logger.info("Scheduler initialized for automated video generation")
 
     logger.info("Application startup complete")
-    
-    yield # Application runs here
+
+    yield  # Application runs here
 
     # Shutdown
     logger.info("Shutting down application")
+
+    # Stop scheduler
+    if os.environ.get("SCHEDULER_ENABLED", "true").lower() == "true":
+        stop_scheduler()
+
     await close_db()
     logger.info("Database connection closed")
 
@@ -85,7 +100,7 @@ app.add_middleware(
 async def log_requests(request: Request, call_next):
     """
     Middleware to log all requests and bind context.
-    
+
     Logs request method, path, and response status.
     Binds request_id for tracing.
     """
@@ -111,10 +126,7 @@ async def log_requests(request: Request, call_next):
         return response
     except Exception as e:
         logger.exception(
-            "Request failed",
-            method=request.method,
-            path=request.url.path,
-            error=str(e)
+            "Request failed", method=request.method, path=request.url.path, error=str(e)
         )
         raise
     finally:
@@ -124,38 +136,31 @@ async def log_requests(request: Request, call_next):
 # === STATIC FILES ===
 
 # Mount static files directory for serving generated media
-app.mount(
-    "/static",
-    StaticFiles(directory=settings.static_dir),
-    name="static"
-)
+app.mount("/static", StaticFiles(directory=settings.static_dir), name="static")
 
 
 # === HEALTH CHECK ===
+
 
 @app.get("/health", tags=["Health"])
 async def health_check():
     """
     Health check endpoint.
-    
+
     Returns 200 OK if database is reachable, 503 otherwise.
     Used by Docker health checks and load balancers.
     """
     db_healthy = await check_db_connection()
 
     if db_healthy:
-        return {
-            "status": "healthy",
-            "database": "connected",
-            "version": "1.0.0"
-        }
+        return {"status": "healthy", "database": "connected", "version": "1.0.0"}
     else:
         return JSONResponse(
             status_code=503,
             content={
                 "status": "unhealthy",
                 "database": "disconnected",
-            }
+            },
         )
 
 
@@ -168,6 +173,7 @@ async def health_check():
 
 
 # === ROOT ENDPOINT ===
+
 
 @app.get("/", tags=["Root"])
 async def root():
@@ -182,14 +188,12 @@ async def root():
 
 # === EXCEPTION HANDLERS ===
 
+
 @app.exception_handler(ValueError)
 async def value_error_handler(request: Request, exc: ValueError):
     """Handle validation errors with 400 response."""
     logger.warning("Validation error", error=str(exc), path=request.url.path)
-    return JSONResponse(
-        status_code=400,
-        content={"detail": str(exc)}
-    )
+    return JSONResponse(status_code=400, content={"detail": str(exc)})
 
 
 @app.exception_handler(Exception)
@@ -200,17 +204,10 @@ async def general_exception_handler(request: Request, exc: Exception):
     if settings.debug:
         # Include error details in development
         return JSONResponse(
-            status_code=500,
-            content={
-                "detail": str(exc), 
-                "type": type(exc).__name__
-            }
+            status_code=500, content={"detail": str(exc), "type": type(exc).__name__}
         )
     else:
         # Hide details in production
         return JSONResponse(
-            status_code=500,
-            content={"detail": "Internal server error"}
+            status_code=500, content={"detail": "Internal server error"}
         )
-
-        

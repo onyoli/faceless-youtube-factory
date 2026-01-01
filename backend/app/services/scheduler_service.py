@@ -10,7 +10,6 @@ from uuid import UUID
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.config import settings
@@ -174,7 +173,7 @@ async def load_scheduled_jobs():
     """Load all active scheduled jobs from database into scheduler."""
     async with get_session_context() as session:
         result = await session.execute(
-            select(ScheduledJob).where(ScheduledJob.is_active == True)
+            select(ScheduledJob).where(ScheduledJob.is_active.is_(True))
         )
         jobs = result.scalars().all()
 
