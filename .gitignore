@@ -8,12 +8,16 @@ env/
 venv/
 
 # Static files (generated content)
-backend/static/
 **/static/audio/
 **/static/video/
 **/static/images/
-**/static/uploads/ 
+**/static/uploads/
 **/static/shorts/
+
+# Keep presets folder tracked (except large videos)
+!**/static/presets/
+!**/static/presets/**
+**/static/presets/videos/
 
 # Editor/IDE specific files
 .idea/
