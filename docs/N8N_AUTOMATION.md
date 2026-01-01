@@ -1,121 +1,123 @@
-# n8n Automation Guide
+# n8n Workflow for Automated Video Generation
 
-Use n8n to schedule automated video creation when your PC is off.
-
-## Architecture
-
-```
-n8n Cloud (free) → Your Backend API (Railway/Render) → YouTube
-     ↓
-  Scheduled trigger at 10 AM
-     ↓
-  HTTP Request to create project
-     ↓
-  Video generated & uploaded automatically
-```
-
----
+Use n8n Cloud (free) to schedule automated video creation.
 
 ## Setup
 
-### 1. Sign up for n8n Cloud
+### 1. Create n8n Cloud Account
+- Go to [n8n.io/cloud](https://n8n.io/cloud)
+- Sign up (no credit card required)
+- Free tier: 5 active workflows
 
-1. Go to [n8n.io/cloud](https://n8n.io/cloud)
-2. Create free account (no card needed)
-3. You get 5 free active workflows
-
-### 2. Create Workflow
-
-1. Click **Add Workflow**
-2. Add nodes in this order:
-
-#### Node 1: Schedule Trigger
-- Type: **Schedule Trigger**
-- Settings:
-  - Rule: `0 2 * * *` (10 AM Philippine time)
-
-#### Node 2: HTTP Request (Generate Topic)
-- Type: **HTTP Request**
-- Settings:
-  - Method: `POST`
-  - URL: `https://api.groq.com/openai/v1/chat/completions`
-  - Headers:
-    - `Authorization`: `Bearer YOUR_GROQ_API_KEY`
-    - `Content-Type`: `application/json`
-  - Body (JSON):
-```json
-{
-  "model": "llama-3.3-70b-versatile",
-  "messages": [
-    {
-      "role": "user",
-      "content": "Generate a unique, engaging topic for a short YouTube video about surprising science facts. Return ONLY the topic, one line, no quotes."
-    }
-  ],
-  "temperature": 0.9
-}
-```
-
-#### Node 3: HTTP Request (Create Project)
-- Type: **HTTP Request**
-- Settings:
-  - Method: `POST`
-  - URL: `https://your-backend.railway.app/api/v1/projects`
-  - Headers:
-    - `Authorization`: `Bearer YOUR_CLERK_TOKEN`
-    - `Content-Type`: `application/json`
-  - Body (JSON):
-```json
-{
-  "title": "Auto: {{ $json.choices[0].message.content }}",
-  "script_prompt": "{{ $json.choices[0].message.content }}",
-  "auto_upload": true,
-  "video_format": "vertical"
-}
-```
-
-### 3. Activate Workflow
-
-Click **Active** toggle → Your workflow runs daily!
-
----
-
-## Getting Your Clerk Token
-
-For the Authorization header, you need a long-lived Clerk token:
-
-1. Login to your app at `https://your-frontend.railway.app`
+### 2. Get Your Auth Token
+1. Log into your app at `https://your-app.onrender.com`
 2. Open browser DevTools → Network tab
-3. Make any API request and copy the `Authorization` header value
-
-**Note:** For production, consider creating a service account or API key system.
+3. Make any API request and copy the `Authorization: Bearer <token>` header
+4. Save this token for n8n
 
 ---
 
-## Alternative: Simple Cron (No Topic Generation)
+## Create Workflow
 
-If you have predefined topics, use this simpler workflow:
+### Step 1: Schedule Trigger
+- Add **Schedule Trigger** node
+- Set cron: `0 2 * * *` (10 AM Philippine time)
 
-```
-Schedule Trigger → HTTP Request (Create Project)
-```
+### Step 2: HTTP Request
+- Add **HTTP Request** node
+- Configure:
 
-With topics rotated from a list:
+| Setting | Value |
+|---------|-------|
+| Method | POST |
+| URL | `https://your-app.onrender.com/api/v1/projects/auto-generate` |
+| Authentication | Header Auth |
+| Header Name | Authorization |
+| Header Value | `Bearer YOUR_CLERK_TOKEN` |
+| Body Type | JSON |
+
+**Body:**
 ```json
 {
-  "title": "Daily Video",
-  "script_prompt": "5 surprising facts about [your niche]",
+  "topic_category": "surprising science facts that most people don't know",
+  "video_format": "vertical",
   "auto_upload": true
 }
 ```
 
+### Step 3: (Optional) Notification
+- Add **Slack/Discord/Email** node to notify when video starts generating
+
 ---
 
-## Cron Examples
+## Example Categories
 
-| Time (Philippine) | Cron Expression |
-|-------------------|-----------------|
-| 10:00 AM | `0 2 * * *` |
-| 8:00 PM | `0 12 * * *` |
-| 6:00 AM | `0 22 * * *` (prev day UTC) |
-| Every 6 hours | `0 */6 * * *` |
+Change `topic_category` to customize your content:
+
+| Niche | Topic Category |
+|-------|----------------|
+| Science | "mind-blowing science facts" |
+| History | "fascinating historical events most people don't know" |
+| Psychology | "psychology tricks that actually work" |
+| Money | "money habits of wealthy people" |
+| Motivation | "daily motivation and success mindset" |
+| Tech | "cool technology facts and innovations" |
+
+---
+
+## Workflow JSON (Import)
+
+Copy and import in n8n:
+
+```json
+{
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [{"field": "cronExpression", "expression": "0 2 * * *"}]
+        }
+      },
+      "name": "Daily 10AM PH",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "url": "https://your-app.onrender.com/api/v1/projects/auto-generate",
+        "method": "POST",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {"name": "topic_category", "value": "surprising science facts"},
+            {"name": "video_format", "value": "vertical"},
+            {"name": "auto_upload", "value": "={{true}}"}
+          ]
+        }
+      },
+      "name": "Create Video",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [450, 300]
+    }
+  ],
+  "connections": {
+    "Daily 10AM PH": {
+      "main": [[{"node": "Create Video", "type": "main", "index": 0}]]
+    }
+  }
+}
+```
+
+---
+
+## Troubleshooting
+
+### Token Expired
+Clerk tokens expire. For production, set up a separate API key system or use Clerk's long-lived tokens.
+
+### Workflow Not Running
+- Check n8n execution history
+- Verify your Render app is awake (free tier sleeps after 15 min)
+- Add a "wake up" HTTP request before the main request

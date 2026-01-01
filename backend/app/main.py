@@ -48,25 +48,12 @@ async def lifespan(app: FastAPI):
         # Production should use: alembic upgrade head
         pass  # Tables are created by init.sql in Docker
 
-    # Start scheduler for automated video generation
-    from app.services.scheduler_service import start_scheduler, stop_scheduler
-    import os
-
-    if os.environ.get("SCHEDULER_ENABLED", "true").lower() == "true":
-        await start_scheduler()
-        logger.info("Scheduler initialized for automated video generation")
-
     logger.info("Application startup complete")
 
     yield  # Application runs here
 
     # Shutdown
     logger.info("Shutting down application")
-
-    # Stop scheduler
-    if os.environ.get("SCHEDULER_ENABLED", "true").lower() == "true":
-        stop_scheduler()
-
     await close_db()
     logger.info("Database connection closed")
 
