@@ -1,0 +1,38 @@
+# CPU-only Dockerfile for cloud deployment (Oracle Cloud, Render, etc.)
+# This uses a standard Python base image without CUDA dependencies
+FROM python:3.11-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    ffmpeg \
+    libsm6 \
+    libxext6 \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Copy requirements first for better caching
+COPY requirements.txt .
+
+# Install PyTorch CPU-only version (much smaller, ~200MB vs 2GB)
+RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu
+
+# Install other Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY . .
+
+# Create static directories
+RUN mkdir -p static/audio static/videos static/previews static/images static/temp static/shorts
+
+# Create non-root user for security
+RUN useradd -m appuser && chown -R appuser:appuser /app
+USER appuser
+
+# Expose port
+EXPOSE 8000
+
+# Production command
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

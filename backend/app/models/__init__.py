@@ -3,6 +3,7 @@ SQLModel ORM models for the application.
 All models are exported here for convenient imports:
     from app.models import User, Project, Script, ...
 """
+
 from app.models.enums import ProjectStatus, AssetType, PrivacyStatus
 from app.models.base import BaseUUIDModel, utc_now
 from app.models.user import User, UserCreate, UserRead
@@ -37,6 +38,12 @@ from app.models.youtube_metadata import (
     YouTubeMetadataCreate,
     YouTubeMetadataUpdate,
     YouTubeMetadataRead,
+)
+from app.models.scheduled_job import (
+    ScheduledJob,
+    ScheduledJobCreate,
+    ScheduledJobRead,
+    ScheduledJobUpdate,
 )
 
 __all__ = [
@@ -81,4 +88,9 @@ __all__ = [
     "YouTubeMetadataCreate",
     "YouTubeMetadataUpdate",
     "YouTubeMetadataRead",
+    # Scheduled Jobs
+    "ScheduledJob",
+    "ScheduledJobCreate",
+    "ScheduledJobRead",
+    "ScheduledJobUpdate",
 ]
