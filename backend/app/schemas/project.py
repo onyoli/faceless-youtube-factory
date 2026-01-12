@@ -132,6 +132,7 @@ class YouTubeMetadataShortResponse(BaseModel):
 class ProjectDetailResponse(ProjectResponse):
     """Detailed project response with all related data."""
 
+    settings: Optional[Dict[str, Any]] = None
     script: Optional[ScriptResponse] = None
     cast: Optional[CastResponse] = None
     assets: List[AssetResponse] = []
@@ -145,3 +146,11 @@ class ProjectListResponse(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class ProjectUpdateRequest(BaseModel):
+    """Request body for updating a project."""
+
+    title: Optional[str] = Field(None, max_length=255, min_length=1)
+    category: Optional[str] = Field(None, max_length=100)
+    script_prompt: Optional[str] = Field(None, max_length=5000, min_length=10)

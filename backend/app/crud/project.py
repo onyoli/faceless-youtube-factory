@@ -139,5 +139,34 @@ class ProjectCRUD:
         result = await session.execute(stmt)
         return result.scalar_one_or_none()
 
+    async def update(
+        self,
+        session: AsyncSession,
+        project_id: UUID,
+        user_id: UUID,
+        title: Optional[str] = None,
+        category: Optional[str] = None,
+        script_prompt: Optional[str] = None,
+    ) -> Optional[Project]:
+        """Update project fields."""
+        project = await self.get_by_id(session, project_id, user_id)
+        if not project:
+            return None
+
+        if title is not None:
+            project.title = title
+        if category is not None:
+            project.category = category
+        if script_prompt is not None:
+            # Update script_prompt in settings
+            if project.settings is None:
+                project.settings = {}
+            project.settings["script_prompt"] = script_prompt
+
+        session.add(project)
+        await session.commit()
+        await session.refresh(project)
+        return project
+
 
 project_crud = ProjectCRUD()

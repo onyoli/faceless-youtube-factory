@@ -128,6 +128,7 @@ async def create_project(
 
     # Create project record
     settings = {
+        "script_prompt": request.script_prompt,
         "image_mode": request.image_mode,
         "scenes_per_image": request.scenes_per_image,
         "background_image_url": request.background_image_url,
@@ -335,7 +336,9 @@ async def get_project(
     response = ProjectDetailResponse(
         id=project.id,
         title=project.title,
+        category=project.category,
         status=project.status.value,
+        settings=project.settings,
         youtube_video_id=project.youtube_video_id,
         youtube_url=project.youtube_url,
         error_message=project.error_message,
