@@ -13,6 +13,7 @@ import { ScriptTab } from "@/components/projects/ScriptTab";
 import { CastingStudio } from "@/components/projects/CastingStudio";
 import { YouTubeSettingsTab } from "@/components/projects/YouTubeSettingsTab";
 import { PreviewTab } from "@/components/projects/PreviewTab";
+import { EditProjectModal } from "@/components/projects/EditProjectModal";
 import { ProjectStatus } from "@/types";
 import {
     FileText,
@@ -25,6 +26,7 @@ import {
     XCircle,
     Trash2,
     Folder,
+    Pencil,
 } from "lucide-react";
 
 const statusConfig: Record<
@@ -49,6 +51,7 @@ export default function ProjectDetailPage() {
     const projectId = params.id as string;
     const queryClient = useQueryClient();
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [showEditModal, setShowEditModal] = useState(false);
     const api = useApi();
 
     // Cancel mutation
@@ -178,6 +181,17 @@ export default function ProjectDetailPage() {
                     </div>
                 </div>
                 <div className="flex items-center gap-3">
+                    {/* Edit Button - Show when not processing */}
+                    {!isProcessing && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowEditModal(true)}
+                        >
+                            <Pencil className="h-4 w-4 mr-1" />
+                            Edit
+                        </Button>
+                    )}
                     {/* Cancel Button - Show during processing */}
                     {isProcessing && (
                         <Button
@@ -289,6 +303,13 @@ export default function ProjectDetailPage() {
                     <PreviewTab project={project} />
                 </TabsContent>
             </Tabs>
+
+            {/* Edit Modal */}
+            <EditProjectModal
+                project={project}
+                open={showEditModal}
+                onClose={() => setShowEditModal(false)}
+            />
         </div>
     );
 }

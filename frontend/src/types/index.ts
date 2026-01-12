@@ -60,6 +60,7 @@ export interface Asset {
 }
 
 export interface ProjectDetail extends Project {
+    settings?: Record<string, any>;
     script?: Script;
     cast?: Cast;
     assets: Asset[];

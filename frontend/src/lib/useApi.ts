@@ -42,6 +42,10 @@ export function useApi() {
             const token = await getToken();
             return api.deleteProject(projectId, token);
         },
+        updateProject: async (projectId: string, data: Parameters<typeof api.updateProject>[1], regenerate = false) => {
+            const token = await getToken();
+            return api.updateProject(projectId, data, regenerate, token);
+        },
 
         // Uploads
         uploadBackgroundImage: async (file: File) => {

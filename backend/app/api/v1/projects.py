@@ -21,6 +21,7 @@ from app.config import settings
 from app.crud.project import project_crud
 from app.schemas.project import (
     ProjectCreateRequest,
+    ProjectUpdateRequest,
     ProjectResponse,
     ProjectListResponse,
     ProjectDetailResponse,
@@ -395,6 +396,84 @@ async def get_project(
     ]
 
     return response
+
+
+@router.put("/{project_id}", response_model=ProjectResponse)
+async def update_project(
+    project_id: UUID,
+    request: ProjectUpdateRequest,
+    background_tasks: BackgroundTasks,
+    regenerate: bool = Query(False, description="Regenerate video after update"),
+    session: AsyncSession = Depends(get_session),
+    current_user: ClerkUser = Depends(get_current_user),
+):
+    """
+    Update a project's metadata.
+
+    If regenerate=True, also restarts the video generation pipeline.
+    """
+    user_id = get_user_uuid(current_user)
+
+    # Update the project
+    project = await project_crud.update(
+        session=session,
+        project_id=project_id,
+        user_id=user_id,
+        title=request.title,
+        category=request.category,
+        script_prompt=request.script_prompt,
+    )
+
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    # If regenerate is requested, start the pipeline
+    if regenerate and request.script_prompt:
+        # Get the script_prompt from settings or request
+        prompt = request.script_prompt or (project.settings or {}).get(
+            "script_prompt", ""
+        )
+        if prompt:
+            # Update status to generating
+            await project_crud.update_status(
+                session=session,
+                project_id=project.id,
+                status=ProjectStatus.GENERATING_SCRIPT,
+            )
+
+            # Get settings
+            proj_settings = project.settings or {}
+
+            # Start pipeline in background
+            background_tasks.add_task(
+                run_pipeline_background,
+                project_id=str(project.id),
+                user_id=str(user_id),
+                script_prompt=prompt,
+                auto_upload=proj_settings.get("auto_upload", False),
+                image_mode=proj_settings.get("image_mode", "per_scene"),
+                scenes_per_image=proj_settings.get("scenes_per_image", 2),
+                background_image_url=proj_settings.get("background_image_url"),
+                video_format=proj_settings.get("video_format", "horizontal"),
+                background_video_url=proj_settings.get("background_video_url"),
+                background_music_url=proj_settings.get("background_music_url"),
+                music_volume=proj_settings.get("music_volume", 0.3),
+                enable_captions=proj_settings.get("enable_captions", True),
+            )
+
+            logger.info("Project regeneration started", project_id=str(project.id))
+
+    return ProjectResponse(
+        id=project.id,
+        title=project.title,
+        category=project.category,
+        status=project.status.value,
+        youtube_video_id=project.youtube_video_id,
+        youtube_url=project.youtube_url,
+        error_message=project.error_message,
+        created_at=project.created_at,
+        updated_at=project.updated_at,
+    )
 
 
 @router.post("/{project_id}/regenerate-audio")

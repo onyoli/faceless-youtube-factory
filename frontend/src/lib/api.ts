@@ -137,7 +137,26 @@ export async function deleteProject(projectId: string, token?: string | null): P
         method: "DELETE",
         token,
     });
-} 
+}
+
+export async function updateProject(
+    projectId: string,
+    data: {
+        title?: string;
+        category?: string;
+        script_prompt?: string;
+    },
+    regenerate: boolean = false,
+    token?: string | null
+): Promise<Project> {
+    const url = `/api/v1/projects/${projectId}${regenerate ? '?regenerate=true' : ''}`;
+    return fetchAPI(url, {
+        method: "PUT",
+        body: JSON.stringify(data),
+        token,
+    });
+}
+
 
 // ============ Presets (no auth needed) ============
 
