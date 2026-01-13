@@ -319,6 +319,8 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         duration: float,
     ) -> None:
         """Mix voice audio with background music."""
+        # Boost voice volume by 1.5x for clearer TTS
+        voice_boost = 1.5
         cmd = [
             "ffmpeg",
             "-y",
@@ -329,7 +331,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             "-i",
             str(music_path),
             "-filter_complex",
-            f"[1:a]volume={music_volume}[music];[0:a][music]amix=inputs=2:duration=first[out]",
+            f"[0:a]volume={voice_boost}[voice];[1:a]volume={music_volume}[music];[voice][music]amix=inputs=2:duration=first[out]",
             "-map",
             "[out]",
             "-t",
@@ -339,7 +341,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 
         result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode != 0:
-            logger.warning(f"Music mixing failed")
+            logger.warning("Music mixing failed")
             shutil.copy(voice_path, output_path)
 
     def _create_solid_video_ffmpeg(
@@ -418,7 +420,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
         output_path: Path,
         total_duration: float,
     ) -> None:
-        """Create video from scene-based images with Ken Burns effect."""
+        """Create video from scene-based images with smooth Ken Burns effect."""
         import random
 
         # Build list of (image_path, duration) for each scene
@@ -447,11 +449,51 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 scene_video_path = self.temp_dir / f"scene_{i}.mp4"
 
                 if img_path and img_path.exists():
-                    # Create video from image with simple slow zoom
-                    total_frames = int(duration * 24)
+                    # Create video from image with smooth Ken Burns effect
+                    # Use 30fps for smoother animation
+                    fps = 30
+                    total_frames = int(duration * fps)
 
-                    # Simple slow zoom - very compatible expression
-                    # Zoom from 1.0 to about 1.08 over the duration
+                    # Randomize zoom direction (in or out)
+                    zoom_in = random.choice([True, False])
+
+                    # Randomize pan direction for variety
+                    pan_direction = random.choice(
+                        ["left", "right", "up", "down", "center"]
+                    )
+
+                    # Smooth ease-in-out zoom using sine function
+                    # This creates natural acceleration/deceleration
+                    # Formula: zoom = 1.0 + 0.12 * (1 - cos(pi * progress)) / 2
+                    # This eases from 1.0 to 1.12 (12% zoom) smoothly
+                    if zoom_in:
+                        # Ease-in-out zoom from 1.0 to 1.12
+                        zoom_expr = f"1.0+0.12*(1-cos(PI*on/{total_frames}))/2"
+                    else:
+                        # Ease-in-out zoom from 1.12 to 1.0 (zoom out)
+                        zoom_expr = f"1.12-0.12*(1-cos(PI*on/{total_frames}))/2"
+
+                    # Pan expressions with easing - subtle movement across the image
+                    # Using sine-based easing for smooth start/stop
+                    pan_amount = 50  # pixels to pan
+                    progress_expr = f"(1-cos(PI*on/{total_frames}))/2"
+
+                    if pan_direction == "left":
+                        x_expr = f"iw/2-(iw/zoom/2)+{pan_amount}*(1-{progress_expr})"
+                        y_expr = "ih/2-(ih/zoom/2)"
+                    elif pan_direction == "right":
+                        x_expr = f"iw/2-(iw/zoom/2)-{pan_amount}+{pan_amount}*{progress_expr}"
+                        y_expr = "ih/2-(ih/zoom/2)"
+                    elif pan_direction == "up":
+                        x_expr = "iw/2-(iw/zoom/2)"
+                        y_expr = f"ih/2-(ih/zoom/2)+{pan_amount}*(1-{progress_expr})"
+                    elif pan_direction == "down":
+                        x_expr = "iw/2-(iw/zoom/2)"
+                        y_expr = f"ih/2-(ih/zoom/2)-{pan_amount}+{pan_amount}*{progress_expr}"
+                    else:  # center - no pan, just zoom
+                        x_expr = "iw/2-(iw/zoom/2)"
+                        y_expr = "ih/2-(ih/zoom/2)"
+
                     cmd = [
                         "ffmpeg",
                         "-y",
@@ -460,7 +502,7 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                         "-i",
                         str(img_path),
                         "-vf",
-                        f"scale=-1:2160,crop=1080:1920,zoompan=z='1+0.0003*on':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={total_frames}:s={WIDTH}x{HEIGHT}:fps=24",
+                        f"scale=-1:2160,crop=1080:1920,zoompan=z='{zoom_expr}':x='{x_expr}':y='{y_expr}':d={total_frames}:s={WIDTH}x{HEIGHT}:fps={fps}",
                         "-c:v",
                         "libx264",
                         "-preset",
