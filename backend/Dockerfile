@@ -21,11 +21,11 @@ WORKDIR /app
 COPY requirements.txt .
 
 # Install PyTorch with CUDA (cached with BuildKit)
-RUN --mount=type=cache,target=/root/.cache/pip \
+RUN --mount=type=cache,id=pip,target=/root/.cache/pip \
     pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
 
 # Install other Python dependencies (cached with BuildKit)
-RUN --mount=type=cache,target=/root/.cache/pip \
+RUN --mount=type=cache,id=pip,target=/root/.cache/pip \
     pip install -r requirements.txt
 
 # Copy application code
