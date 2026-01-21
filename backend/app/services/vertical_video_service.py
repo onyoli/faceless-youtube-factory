@@ -11,8 +11,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import List, Optional
 
-from moviepy.editor import AudioFileClip
-
+from moviepy.audio.io.AudioFileClip import AudioFileClip
 from app.config import settings
 from app.utils.logging import get_logger
 
