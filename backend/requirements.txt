@@ -14,3 +14,4 @@ langchain-groq>=0.1.0
 moviepy>=2.0.0
 imageio-ffmpeg>=0.4.8
 google-auth-oauthlib>=1.0.0
+google-api-python-client>=2.100.0
