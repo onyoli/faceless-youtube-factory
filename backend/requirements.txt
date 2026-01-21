@@ -11,3 +11,4 @@ structlog>=23.1.0
 cryptography>=41.0.0
 edge-tts>=6.1.0
 langchain-groq>=0.1.0
+moviepy>=1.0.3
