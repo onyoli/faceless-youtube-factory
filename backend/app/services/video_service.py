@@ -7,7 +7,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import List
 
-from moviepy.editor import (
+from moviepy import (
     AudioFileClip,
     TextClip,
     ColorClip,
