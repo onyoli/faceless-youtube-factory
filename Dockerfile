@@ -1,10 +1,6 @@
 # Use Python 3.13 slim image
 FROM python:3.13-slim
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    ffmpeg \
-    imagemagick    
 # Set working directory
 WORKDIR /app
 
